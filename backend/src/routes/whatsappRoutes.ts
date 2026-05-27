@@ -19,4 +19,10 @@ whatsappRoutes.delete(
   WhatsAppController.remove
 );
 
+whatsappRoutes.get(
+  "/whatsapp/:whatsappId/groups",
+  isAuth,
+  WhatsAppController.groups
+);
+
 export default whatsappRoutes;

@@ -19,7 +19,11 @@ services:
       - BACKEND_URL=${BACKEND_URL:-http://localhost}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - PROXY_PORT=${PROXY_PORT:-8080}
-      - CHROME_ARGS=--no-sandbox --disable-setuid-sandbox
+      - WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER:-whaileys}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - WHAILEYS_LOG_LEVEL=${WHAILEYS_LOG_LEVEL:-error}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY}
+      - AI_MODEL=${AI_MODEL}
     ports:
       - ${BACKEND_PORT:-8080}:3000
     volumes:
@@ -37,6 +41,7 @@ services:
       dockerfile: ./Dockerfile
     environment:
       - URL_BACKEND=backend:3000
+      - VITE_BACKEND_URL=/api
       - REACT_APP_BACKEND_URL=${BACKEND_URL:-http://localhost}:${PROXY_PORT:-8080}/
       - FRONTEND_SERVER_NAME=${FRONTEND_SERVER_NAME}
       - BACKEND_SERVER_NAME=${BACKEND_SERVER_NAME}

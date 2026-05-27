@@ -11,6 +11,21 @@ import WhatsappQueue from "../models/WhatsappQueue";
 import UserQueue from "../models/UserQueue";
 import QuickAnswer from "../models/QuickAnswer";
 import WppKey from "../models/WppKey";
+import ScheduledMessage from "../models/ScheduledMessage";
+import BotRule from "../models/BotRule";
+import CronJob from "../models/CronJob";
+import AgentInstruction from "../models/AgentInstruction";
+import FlowBot from "../models/FlowBot";
+import FlowNode from "../models/FlowNode";
+import FlowSession from "../models/FlowSession";
+import AutoForward from "../models/AutoForward";
+import AutoForwardLog from "../models/AutoForwardLog";
+import BotCajeroConfig from "../models/BotCajeroConfig";
+import BotCajeroFAQ from "../models/BotCajeroFAQ";
+import BotCajeroSpamRule from "../models/BotCajeroSpamRule";
+import BotCajeroSticker from "../models/BotCajeroSticker";
+import BotCajeroLog from "../models/BotCajeroLog";
+import BotCajeroReminder from "../models/BotCajeroReminder";
 
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -30,7 +45,22 @@ const models = [
   WhatsappQueue,
   UserQueue,
   QuickAnswer,
-  WppKey
+  WppKey,
+  ScheduledMessage,
+  BotRule,
+  CronJob,
+  AgentInstruction,
+  FlowBot,
+  FlowNode,
+  FlowSession,
+  AutoForward,
+  AutoForwardLog,
+  BotCajeroConfig,
+  BotCajeroFAQ,
+  BotCajeroSpamRule,
+  BotCajeroSticker,
+  BotCajeroLog,
+  BotCajeroReminder
 ];
 
 sequelize.addModels(models);

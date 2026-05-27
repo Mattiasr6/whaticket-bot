@@ -1,0 +1,49 @@
+{
+  "created_at": "2026-05-26T17:58:37.534Z",
+  "phases": {
+    "spec": {
+      "status": "completed",
+      "agent": "software-spec-definer",
+      "completed_at": "2026-05-26T17:59:16.952Z"
+    },
+    "code-web": {
+      "status": "completed",
+      "agent": "senior-web",
+      "completed_at": "2026-05-26T20:48:37.999Z"
+    },
+    "code-admin": {
+      "status": "pending",
+      "agent": "senior-admin"
+    },
+    "code-dotnet": {
+      "status": "completed",
+      "agent": "senior-dotnet",
+      "completed_at": "2026-05-26T18:05:40.029Z"
+    },
+    "code-postgres": {
+      "status": "pending",
+      "agent": "senior-postgres"
+    },
+    "qa": {
+      "status": "completed",
+      "agent": "qa-reviewer",
+      "completed_at": "2026-05-26T20:52:21.140Z"
+    },
+    "docs": {
+      "status": "pending",
+      "agent": "technical-writer"
+    },
+    "perf": {
+      "status": "completed",
+      "agent": "performance-auditor",
+      "completed_at": "2026-05-26T21:00:10.702Z"
+    }
+  },
+  "current_phase": "perf",
+  "loop": false,
+  "loop_target": null,
+  "tokens_used": 0,
+  "summary": "BotCajero — Bot moderador WhatsApp + asistente admin por comandos privados (backend Node.js)",
+  "loop_reason": "QA encontró 2 bugs major + 4 minor. Corregir: ListLogsService tipado, BotCajeroLog createdAt decorator, prettier, logs faltantes en comandos y quiet mode, validación tamaño sticker.",
+  "loop_resolved_at": "2026-05-26T21:07:07.009Z"
+}

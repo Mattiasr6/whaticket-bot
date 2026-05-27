@@ -18,6 +18,18 @@ import FindOrCreateTicketService from "../services/TicketServices/FindOrCreateTi
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import CreateContactService from "../services/ContactServices/CreateContactService";
+import EvaluateBotRules from "../services/BotRuleServices/EvaluateBotRules";
+import { decideAndAct } from "../services/AiAgentServices/AiAgentService";
+import { FlowBotHandler } from "../services/FlowBotServices/FlowBotHandler";
+import MessageBuffer from "../services/AutoForwardServices/MessageBuffer";
+import HandlePrivateCommand from "../services/AutoForwardServices/HandlePrivateCommand";
+
+import { handlePrivateCommand } from "../services/BotCajeroServices/HandlePrivateCommand";
+import { handleFAQAutoReply } from "../services/BotCajeroServices/FAQAutoReply";
+import { handleAntiSpam } from "../services/BotCajeroServices/AntiSpamService";
+import { getRedisClient } from "../libs/redisStore";
+import { handleGroupCommand } from "../services/BotCajeroServices/GroupCommandHandler";
+import { getWbot } from "../providers/WhatsApp/Implementations/whaileys";
 
 import { whatsappProvider } from "../providers/WhatsApp/whatsappProvider";
 import { MessageType, MessageAck } from "../providers/WhatsApp/types";
@@ -46,6 +58,7 @@ export interface MessagePayload {
   mediaUrl?: string;
   mediaType?: string;
   ack?: MessageAck;
+  mentionedJid?: string[];
 }
 
 export interface MediaPayload {
@@ -290,6 +303,162 @@ export const handleMessage = async (
     await ticket.update({ lastMessage: lastMessageText });
 
     await CreateMessageService({ messageData });
+
+    if (!processedMessage.fromMe && processedMessage.body) {
+      const toJid = contextPayload.groupContact
+        ? contextPayload.groupContact.number
+        : contactPayload.number;
+      await EvaluateBotRules(
+        contextPayload.whatsappId,
+        processedMessage.body,
+        Boolean(contextPayload.groupContact),
+        toJid
+      );
+    }
+    if (!processedMessage.fromMe && processedMessage.body) {
+      decideAndAct({
+        whatsappId: contextPayload.whatsappId,
+        messageBody: processedMessage.body,
+        fromJid: contactPayload.number,
+        isGroup: Boolean(contextPayload.groupContact),
+        groupJid: contextPayload.groupContact?.number
+      }).catch(err => {
+        logger.error({ info: "FlowBot error", error: err.message });
+      });
+    }
+
+    // ===== Reenvío Automático =====
+    // 1. Buffer: store group messages for later scanning
+    //    Only metadata (messageId), no base64 images
+    if (contactPayload.isGroup && !processedMessage.fromMe) {
+      MessageBuffer.add(contextPayload.whatsappId, contactPayload.number, {
+        id: processedMessage.id,
+        timestamp: processedMessage.timestamp,
+        type: processedMessage.type,
+        hasMedia: processedMessage.hasMedia,
+        messageId: processedMessage.hasMedia ? processedMessage.id : undefined,
+        body: processedMessage.body
+      }).catch(err => {
+        logger.error({ info: "AutoForward buffer error", error: err.message });
+      });
+    }
+
+    // 2. Detect private commands (individual chat only, not groups)
+    if (
+      !processedMessage.fromMe &&
+      !contactPayload.isGroup &&
+      processedMessage.body.trim().startsWith("/")
+    ) {
+      HandlePrivateCommand(
+        contextPayload.whatsappId,
+        contactPayload.number,
+        processedMessage.body.trim()
+      ).catch(err => {
+        logger.error({
+          info: "AutoForward - Private command error",
+          error: err.message
+        });
+      });
+    }
+
+    // ===== BotCajero =====
+
+    // 0. BotCajero private commands (individual chat only, not groups)
+    if (
+      !processedMessage.fromMe &&
+      !contactPayload.isGroup &&
+      processedMessage.body.trim().startsWith("/")
+    ) {
+      handlePrivateCommand(
+        contextPayload.whatsappId,
+        contactPayload.number,
+        processedMessage.body.trim(),
+        mediaPayload
+      ).catch(err => {
+        logger.error({
+          info: "BotCajero - Private command error",
+          error: err.message
+        });
+      });
+    }
+
+    // 1. Update Redis lastmsg timestamp for inactivity tracking
+    if (contactPayload.isGroup && !processedMessage.fromMe) {
+      const redis = getRedisClient();
+      if (redis) {
+        const lastMsgKey = `botcajero:lastmsg:${contextPayload.whatsappId}:${contactPayload.number}`;
+        redis.set(lastMsgKey, Date.now().toString()).catch(() => {});
+      }
+    }
+
+    // 1.5. Mute check — skip processing for muted users
+    if (contactPayload.isGroup && !processedMessage.fromMe) {
+      const redis = getRedisClient();
+      if (redis) {
+        const muteKey = `botcajero:muted:${contextPayload.whatsappId}:${contactPayload.number.replace(/[^0-9]/g, "")}`;
+        const isMuted = await redis.get(muteKey);
+        if (isMuted) return; // Skip anti-spam, FAQ, etc.
+      }
+    }
+
+    // 2. Anti-spam (group only, incoming messages)
+    if (
+      contactPayload.isGroup &&
+      !processedMessage.fromMe &&
+      processedMessage.body
+    ) {
+      const spamDetected = await handleAntiSpam(
+        contextPayload.whatsappId,
+        contactPayload.number,
+        processedMessage.body,
+        processedMessage.id,
+        contactPayload.number,
+        contactPayload.name
+      );
+      if (spamDetected) return;
+    }
+
+    // 3. FAQ auto-reply (group only, incoming messages)
+    if (
+      contactPayload.isGroup &&
+      !processedMessage.fromMe &&
+      processedMessage.body
+    ) {
+      await handleFAQAutoReply(
+        contextPayload.whatsappId,
+        contactPayload.number,
+        processedMessage.body
+      );
+    }
+
+    // 3.5 Group commands — detect @bot mentions
+    if (
+      contactPayload.isGroup &&
+      !processedMessage.fromMe &&
+      processedMessage.mentionedJid &&
+      processedMessage.mentionedJid.length > 0
+    ) {
+      try {
+        const wbot = getWbot(contextPayload.whatsappId);
+        const botJid = (wbot.user?.id || "").replace(/:[0-9]+/, "");
+        const isBotMentioned = processedMessage.mentionedJid.some(
+          jid => jid.replace(/:[0-9]+/, "") === botJid
+        );
+        if (isBotMentioned && processedMessage.body) {
+          await handleGroupCommand(
+            contextPayload.whatsappId,
+            contactPayload.number,
+            processedMessage.body,
+            contactPayload.number
+          );
+        }
+      } catch (err) {
+        logger.error({
+          info: "BotCajero - Group command error",
+          error: (err as Error).message
+        });
+      }
+    }
 
     await processVcardMessage(processedMessage);
 

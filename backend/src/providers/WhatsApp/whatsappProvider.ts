@@ -40,6 +40,13 @@ export interface WhatsappProvider {
     chatId: string,
     limit: number
   ): Promise<ProviderMessage[]>;
+  fetchGroups(
+    sessionId: number
+  ): Promise<{ jid: string; subject: string; participantCount: number }[]>;
+  downloadMedia(
+    sessionId: number,
+    messageId: string
+  ): Promise<{ data: Buffer; mimetype: string; filename: string }>;
 }
 
 const provider = process.env.WHATSAPP_PROVIDER || "wwebjs";

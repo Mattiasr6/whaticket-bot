@@ -114,3 +114,12 @@ export const remove = async (
 
   return res.status(200).json({ message: "Whatsapp deleted." });
 };
+
+export const groups = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { whatsappId } = req.params;
+  const result = await whatsappProvider.fetchGroups(Number(whatsappId));
+  return res.json(result);
+};

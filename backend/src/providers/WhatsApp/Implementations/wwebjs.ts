@@ -451,6 +451,7 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
     const args: string = process.env.CHROME_ARGS || "";
 
     const wbot: Session = new Client({
+      // @ts-expect-error: session removed from types but still functional at runtime
       session: sessionCfg,
       authStrategy: new LocalAuth({ clientId: `bd_${whatsapp.id}` }),
       puppeteer: {
@@ -621,6 +622,19 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
   }
 };
 
+const fetchGroups = async (
+  _sessionId: number
+): Promise<{ jid: string; subject: string; participantCount: number }[]> => {
+  return [];
+};
+
+const downloadMedia = async (
+  _sessionId: number,
+  _messageId: string
+): Promise<{ data: Buffer; mimetype: string; filename: string }> => {
+  throw new Error("downloadMedia not supported on wwebjs provider");
+};
+
 export const WhatsappWebJsProvider: WhatsappProvider = {
   init,
   removeSession,
@@ -632,5 +646,7 @@ export const WhatsappWebJsProvider: WhatsappProvider = {
   getProfilePicUrl,
   getContacts,
   sendSeen,
-  fetchChatMessages
+  fetchChatMessages,
+  fetchGroups,
+  downloadMedia
 };

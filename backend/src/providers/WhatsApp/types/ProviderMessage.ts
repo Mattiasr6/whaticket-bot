@@ -22,4 +22,5 @@ export interface ProviderMessage {
   to: string;
   hasQuotedMsg?: boolean;
   ack?: MessageAck;
+  mentionedJid?: string[];
 }

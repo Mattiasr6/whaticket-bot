@@ -11,19 +11,36 @@ import whatsappSessionRoutes from "./whatsappSessionRoutes";
 import queueRoutes from "./queueRoutes";
 import quickAnswerRoutes from "./quickAnswerRoutes";
 import apiRoutes from "./apiRoutes";
+import scheduledMessageRoutes from "./scheduledMessageRoutes";
+import botRuleRoutes from "./botRuleRoutes";
+import cronJobRoutes from "./cronJobRoutes";
+import agentInstructionRoutes from "./agentInstructionRoutes";
+import flowBotRoutes from "./flowBotRoutes";
+import autoForwardRoutes from "./autoForwardRoutes";
+import botCajeroRoutes from "./botCajeroRoutes";
+
+const apiRouter = Router();
+
+apiRouter.use(userRoutes);
+apiRouter.use("/auth", authRoutes);
+apiRouter.use(settingRoutes);
+apiRouter.use(contactRoutes);
+apiRouter.use(ticketRoutes);
+apiRouter.use(whatsappRoutes);
+apiRouter.use(messageRoutes);
+apiRouter.use(whatsappSessionRoutes);
+apiRouter.use(queueRoutes);
+apiRouter.use(quickAnswerRoutes);
+apiRouter.use("/messages", apiRoutes);
+apiRouter.use(scheduledMessageRoutes);
+apiRouter.use(botRuleRoutes);
+apiRouter.use(cronJobRoutes);
+apiRouter.use(agentInstructionRoutes);
+apiRouter.use(flowBotRoutes);
+apiRouter.use(autoForwardRoutes);
+apiRouter.use(botCajeroRoutes);
 
 const routes = Router();
-
-routes.use(userRoutes);
-routes.use("/auth", authRoutes);
-routes.use(settingRoutes);
-routes.use(contactRoutes);
-routes.use(ticketRoutes);
-routes.use(whatsappRoutes);
-routes.use(messageRoutes);
-routes.use(whatsappSessionRoutes);
-routes.use(queueRoutes);
-routes.use(quickAnswerRoutes);
-routes.use("/api/messages", apiRoutes);
+routes.use("/api", apiRouter);
 
 export default routes;

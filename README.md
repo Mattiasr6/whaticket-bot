@@ -38,6 +38,7 @@ If a contact sent a new message in less than 2 hours interval, and there is no t
 - Send and receive message ✅
 - Send media (images/audio/documents) ✅
 - Receive media (images/audio/video/documents) ✅
+- FlowBot — Conversational bots with interactive menu ✅
 
 ## Installation and Usage (Linux Ubuntu - Development)
 
@@ -524,6 +525,17 @@ Para doações em BRL, utilize o Paypal:
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate?business=VWW3BHW4AWHUY&item_name=Desenvolvimento+de+Software&currency_code=BRL)
 
 Any help and suggestions will be apreciated.
+
+## FlowBot — Conversational Bots
+
+FlowBot lets you build automated WhatsApp bots with a hierarchical menu tree, no coding required. Define trigger keywords, build a visual tree of up to 3 levels, and let the bot handle common inquiries 24/7.
+
+- **3 node types**: Menu (numbered options), Message (info leaf), Redirect (jump between nodes)
+- **Visual tree editor**: expand/collapse, reorder siblings, reparent nodes with drag
+- **Session management**: automatic 30-min timeout, `#` command to return to main menu
+- **Preview mode**: test the full conversation flow from the UI without sending real messages
+
+See the [user guide](docs/FLOWBOT.md) (español) for a step-by-step tutorial, and the [API reference](docs/FLOWBOT-API.md) for endpoint documentation.
 
 ## Disclaimer
 
