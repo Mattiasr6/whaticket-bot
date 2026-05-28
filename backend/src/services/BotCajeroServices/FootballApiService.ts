@@ -1,246 +1,194 @@
-import axios from "axios";
-import { getRedisClient } from "../../libs/redisStore";
 import { logger } from "../../utils/logger";
 
-const API_BASE = "https://api-football-v1.p.rapidapi.com/v3";
-const API_KEY = process.env.FOOTBALL_API_KEY || "";
+const API_BASE = "https://v3.football.api-sports.io";
+const API_KEY = process.env.FOOTBALL_API_KEY || "f1acc5d5397639eee54c0126b50e33d3";
 
-const CACHE = {
-  FIXTURES_TODAY: 1800,
-  FIXTURES_TOMORROW: 1800,
-  FIXTURES_BY_DATE: 1800,
-  SEARCH: 1800,
-  LIVE: 180,
-  FIXTURE_BY_ID: 600,
-  STATS: 600
+const headers = {
+  "x-apisports-key": API_KEY
 };
 
-const cacheKey = (type: string, param: string): string =>
-  `botcajero:football:${type}:${param}`;
+interface MatchInfo {
+  home: string;
+  away: string;
+  date: string;
+  time: string;
+  league: string;
+  country?: string;
+  score?: string;
+  status?: string;
+  id?: number;
+  homeId?: number;
+  awayId?: number;
+}
 
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    "x-rapidapi-key": API_KEY,
-    "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
-  },
-  timeout: 10000
-});
+const getLocalDate = (offset?: number): string => {
+  const tz = process.env.TZ || "America/La_Paz";
+  const d = new Date();
+  if (offset) d.setDate(d.getDate() + offset);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d).replace(/\//g, "-");
+};
 
-const getFixturesByDate = async (date: string): Promise<any[]> => {
-  const key = cacheKey("fixtures", date);
-  const redis = getRedisClient();
+const formatTime = (timestamp: string): string => {
+  if (!timestamp) return "??:??";
+  const d = new Date(timestamp);
+  return d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", timeZone: "America/La_Paz" });
+};
 
-  if (redis) {
-    try {
-      const cached = await redis.get(key);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // cache miss
-    }
+const apiFetch = async (endpoint: string): Promise<any> => {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers,
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await res.json();
+    return data?.response || [];
+  } catch (err) {
+    logger.error({ info: "API-Football error", endpoint, error: (err as Error).message });
+    return [];
   }
-
-  const res = await apiClient.get("/fixtures", { params: { date } });
-  const data = res.data?.response || [];
-  if (redis) {
-    try {
-      await redis.setex(key, CACHE.FIXTURES_BY_DATE, JSON.stringify(data));
-    } catch {
-      // non-critical
-    }
-  }
-  return data;
 };
 
-const getTomorrowFixtures = async (): Promise<any[]> => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dateStr = tomorrow.toISOString().split("T")[0];
-  return getFixturesByDate(dateStr);
+const getFixturesByDate = async (date: string): Promise<MatchInfo[]> => {
+  const data = await apiFetch(`/fixtures?date=${date}`);
+  return data
+    .filter((f: any) => {
+      // Mostrar todos: no iniciados, en vivo, terminados
+      const status = f.fixture?.status?.short || "";
+      // Excluir solo si status está vacío o es cancelado/postergado
+      return !["CANC", "POST", "ABAN", "SUSP", "AWARDED"].includes(status);
+    })
+    .map((f: any) => ({
+      home: f.teams?.home?.name || "?",
+      away: f.teams?.away?.name || "?",
+      date,
+      time: formatTime(f.fixture?.date),
+      league: f.league?.name || "Otras ligas",
+      country: f.league?.country || "",
+      score: f.goals?.home !== null ? `${f.goals.home}-${f.goals.away}` : undefined,
+      status: f.fixture?.status?.short || "NS",
+      id: f.fixture?.id,
+      homeId: f.teams?.home?.id,
+      awayId: f.teams?.away?.id
+    }));
 };
 
-const getTodayFixtures = async (): Promise<any[]> => {
-  const today = new Date().toISOString().split("T")[0];
-  return getFixturesByDate(today);
-};
+const getTodayFixtures = async (): Promise<MatchInfo[]> => getFixturesByDate(getLocalDate());
+const getTomorrowFixtures = async (): Promise<MatchInfo[]> => getFixturesByDate(getLocalDate(1));
 
-const getLiveFixtures = async (): Promise<any[]> => {
-  const key = cacheKey("live", "all");
-  const redis = getRedisClient();
-
-  if (redis) {
-    try {
-      const cached = await redis.get(key);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // cache miss
-    }
-  }
-
-  const res = await apiClient.get("/fixtures", { params: { live: "all" } });
-  const data = res.data?.response || [];
-  if (redis) {
-    try {
-      await redis.setex(key, CACHE.LIVE, JSON.stringify(data));
-    } catch {
-      // non-critical
-    }
-  }
-  return data;
-};
+const getLiveFixtures = async (): Promise<any[]> => apiFetch("/fixtures?live=all");
 
 const getFixtureById = async (fixtureId: number): Promise<any | null> => {
-  const key = cacheKey("fixture", String(fixtureId));
-  const redis = getRedisClient();
-
-  if (redis) {
-    try {
-      const cached = await redis.get(key);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // cache miss
-    }
-  }
-
-  const res = await apiClient.get("/fixtures", { params: { id: fixtureId } });
-  const data = res.data?.response?.[0] || null;
-  if (redis && data) {
-    try {
-      await redis.setex(key, CACHE.FIXTURE_BY_ID, JSON.stringify(data));
-    } catch {
-      // non-critical
-    }
-  }
-  return data;
+  const data = await apiFetch(`/fixtures?id=${fixtureId}`);
+  return data[0] || null;
 };
 
-const getFixtureStats = async (fixtureId: number): Promise<any[]> => {
-  const key = cacheKey("stats", String(fixtureId));
-  const redis = getRedisClient();
-
-  if (redis) {
-    try {
-      const cached = await redis.get(key);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // cache miss
-    }
-  }
-
-  const res = await apiClient.get("/fixtures/statistics", {
-    params: { fixture: fixtureId }
-  });
-  const data = res.data?.response || [];
-  if (redis) {
-    try {
-      await redis.setex(key, CACHE.STATS, JSON.stringify(data));
-    } catch {
-      // non-critical
-    }
-  }
-  return data;
-};
+const getFixtureStats = async (fixtureId: number): Promise<any[]> => apiFetch(`/fixtures/statistics?fixture=${fixtureId}`);
 
 const searchFixtures = async (query: string): Promise<any[]> => {
-  const key = cacheKey(
-    "search",
-    query.toLowerCase().replace(/\s+/g, "_")
-  );
-  const redis = getRedisClient();
-
-  if (redis) {
-    try {
-      const cached = await redis.get(key);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // cache miss
-    }
-  }
-
-  const teamRes = await apiClient.get("/teams", {
-    params: { search: query }
-  });
-  const teamId = teamRes.data?.response?.[0]?.team?.id;
+  // Buscar equipos
+  const teams = await apiFetch(`/teams?search=${encodeURIComponent(query)}`);
+  if (teams.length === 0) return [];
+  const teamId = teams[0].team?.id;
   if (!teamId) return [];
-
-  const fixturesRes = await apiClient.get("/fixtures", {
-    params: { team: teamId, next: 5 }
-  });
-  const data = fixturesRes.data?.response || [];
-  if (redis) {
-    try {
-      await redis.setex(key, CACHE.SEARCH, JSON.stringify(data));
-    } catch {
-      // non-critical
-    }
-  }
-  return data;
+  // Buscar próximos fixtures de ese equipo
+  const fixtures = await apiFetch(`/fixtures?team=${teamId}&next=5`);
+  return fixtures.map((f: any) => ({
+    fixture: { id: f.fixture?.id, date: f.fixture?.date },
+    teams: { home: { name: f.teams?.home?.name }, away: { name: f.teams?.away?.name } },
+    league: { name: f.league?.name }
+  }));
 };
 
-const formatFixturesByLeague = (fixtures: any[]): string => {
-  const leagues: Record<string, string[]> = {};
+// ─── Normalizar nombre de liga ───
+const normalizeLeagueName = (name: string): string => {
+  return name
+    .replace(/ Group [A-Z0-9]/i, "")
+    .replace(/ Knockout Stage/i, "")
+    .replace(/ Relegation\/Promotion.*/i, "")
+    .replace(/ Playoffs?/i, "")
+    .replace(/ Regular Season/i, "")
+    .trim();
+};
 
-  for (const f of fixtures) {
-    const leagueName = f.league?.name || "Otras ligas";
-    const home = f.teams?.home?.name || "?";
-    const away = f.teams?.away?.name || "?";
-    const date = new Date(f.fixture?.date || "");
-    const time = date.toLocaleTimeString("es", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/La_Paz"
-    });
-    const status = f.fixture?.status?.short || "";
+const IMPORTANT_KEYWORDS = [
+  "libertadores", "sudamericana", "copa do brasil", "copa argentina",
+  "la liga", "serie a", "bundesliga", "ligue 1", "champions league",
+  "europa league", "conference league", "world cup", "copa américa",
+  "brasileirão", "brasileiro série", "liga profesional",
+  "primera división argentina", "primera división bolivia",
+  "primera división chile", "primera división perú",
+  "mls", "eredivisie", "primeira liga", "belgian pro league",
+  "super lig", "allsvenskan", "eliteserien",
+  "england premier league", "english premier",
+  "spain la liga", "spanish la liga",
+  "italy serie a", "italian serie a",
+  "germany bundesliga", "german bundesliga",
+  "france ligue 1", "french ligue 1",
+  "portugal primeira liga", "portuguese primeira liga"
+];
 
-    let line = `${home} vs ${away}`;
-    if (status === "FT" || status === "AET" || status === "PEN") {
-      const scoreHome = f.goals?.home ?? 0;
-      const scoreAway = f.goals?.away ?? 0;
-      line += ` ${scoreHome}-${scoreAway}`;
-    } else if (
-      status === "1H" ||
-      status === "2H" ||
-      status === "HT"
-    ) {
-      const scoreHome = f.goals?.home ?? 0;
-      const scoreAway = f.goals?.away ?? 0;
-      line += ` ${scoreHome}-${scoreAway} [${status}]`;
-    } else {
-      line += ` — ${time}`;
+const EXCLUDE_KEYWORDS = [
+  "u17", "u19", "u20", "u23", "regionalliga", "oberliga",
+  "queensland", "victoria", "new south wales", "south australia", "tasmania", "western australia",
+  "liga f", "egyptian", "sudani", "ethiopia", "kuwait", "kyrgyzstan", "bhutan", "barbados",
+  "copa do nordeste", "serie c", "serie d", "liga 2", "liga 3", "4 deild", "3 deild",
+  "landesliga", "kakkonen", "kolmonen", "division 2", "division intermedia",
+  "2. division", "3. division", "third league", "second league", "first nl",
+  "erovnuli", "virsliga", "1 lyga", "a lyga",
+  "premier league kazakh", "premier league united arab", "premier league barbados",
+  "premier league bhutan", "premier league sudan", "premier league ethiopia",
+  "premier league kyrgyzstan", "premier league kuwait",
+  "norway 3. division", "sweden division 2",
+  "czech", "bulgaria third", "croatia second", "serbia prva",
+  "montenegro", "kosovo", "tunisia", "ukraine persha",
+  "uzbekistan", "china league one",
+  "u19", "u20", "u23", "u17", "reserve", "aspirantes",
+  "friendlies", "liga women", "feminine", "nwsl", "w league",
+  "northern super league", "canadian premier",
+  "paulista", "baiano", "mineiro", "copa norte", "copa ecuador", "copa colombia", "copa paraguay",
+  "ligue 2", "serie b", "second league",
+  "paraguay", "peru segunda", "peru liga women",
+  "club friendly", "women"
+];
+
+const formatFixturesByLeague = (fixtures: MatchInfo[], dateLabel?: string): string => {
+  const filtered = fixtures.filter(m => {
+    const leagueLower = m.league.toLowerCase();
+    const combined = leagueLower + " " + (m.country || "").toLowerCase();
+    for (const excl of EXCLUDE_KEYWORDS) if (combined.includes(excl)) return false;
+    return IMPORTANT_KEYWORDS.some(kw => combined.includes(kw));
+  });
+
+  const grouped: Record<string, MatchInfo[]> = {};
+  for (const match of filtered) {
+    const norm = normalizeLeagueName(match.league);
+    if (!grouped[norm]) grouped[norm] = [];
+    grouped[norm].push(match);
+  }
+
+  const tz = process.env.TZ || "America/La_Paz";
+  const dateStr = dateLabel || new Intl.DateTimeFormat("es", { timeZone: tz, weekday: "long", day: "numeric", month: "numeric", year: "numeric" }).format(new Date());
+
+  if (filtered.length === 0) return `📋 No hay partidos programados para ${dateStr}.`;
+
+  let text = `⚽ Partidos de Fútbol — ${dateStr}\n\n`;
+  text += `📊 ${filtered.length} partidos · ${Object.keys(grouped).length} ligas\n\n`;
+
+  for (const [league, matches] of Object.entries(grouped)) {
+    text += `🏆 ${league}\n`;
+    for (const m of matches) {
+      if (m.score) text += `  🕐 ${m.time}  ${m.home} ${m.score} ${m.away}\n`;
+      else text += `  🕐 ${m.time}  ${m.home} vs ${m.away}\n`;
     }
-
-    if (!leagues[leagueName]) leagues[leagueName] = [];
-    leagues[leagueName].push(line);
+    text += "\n";
   }
 
-  const emojis: Record<string, string> = {
-    "La Liga": "🇪🇸",
-    "Premier League": "🇬🇧",
-    "Serie A": "🇮🇹",
-    Bundesliga: "🇩🇪",
-    "Ligue 1": "🇫🇷",
-    "Brasileirão": "🇧🇷",
-    "Liga Profesional": "🇦🇷",
-    default: "⚽"
-  };
-
-  let text = "";
-  for (const [league, matches] of Object.entries(leagues)) {
-    const emoji = emojis[league] || emojis.default;
-    text += `${emoji} *${league}:*\n`;
-    text += matches.map(m => `   • ${m}`).join("\n");
-    text += "\n\n";
-  }
+  text += `_Hora Bolivia (America/La_Paz)_`;
   return text.trim();
 };
 
 export {
-  getFixturesByDate,
-  getTodayFixtures,
-  getTomorrowFixtures,
-  getLiveFixtures,
-  getFixtureById,
-  getFixtureStats,
-  searchFixtures,
-  formatFixturesByLeague
+  getFixturesByDate, getTodayFixtures, getTomorrowFixtures,
+  getLiveFixtures, getFixtureById, getFixtureStats,
+  searchFixtures, formatFixturesByLeague
 };

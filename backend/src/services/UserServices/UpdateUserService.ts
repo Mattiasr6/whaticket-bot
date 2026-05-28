@@ -9,7 +9,6 @@ interface UserData {
   password?: string;
   name?: string;
   profile?: string;
-  queueIds?: number[];
   whatsappId?: number;
 }
 
@@ -43,7 +42,6 @@ const UpdateUserService = async ({
     password,
     profile,
     name,
-    queueIds = [],
     whatsappId
   } = userData;
 
@@ -60,8 +58,6 @@ const UpdateUserService = async ({
     name,
     whatsappId: whatsappId ? whatsappId : null
   });
-
-  await user.$set("queues", queueIds);
 
   await user.reload();
 

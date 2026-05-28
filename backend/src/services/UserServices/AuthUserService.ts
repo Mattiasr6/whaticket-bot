@@ -4,16 +4,7 @@ import {
   createAccessToken,
   createRefreshToken
 } from "../../helpers/CreateTokens";
-import { SerializeUser } from "../../helpers/SerializeUser";
-import Queue from "../../models/Queue";
-
-interface SerializedUser {
-  id: number;
-  name: string;
-  email: string;
-  profile: string;
-  queues: Queue[];
-}
+import { SerializeUser, SerializedUser } from "../../helpers/SerializeUser";
 
 interface Request {
   email: string;
@@ -32,7 +23,7 @@ const AuthUserService = async ({
 }: Request): Promise<Response> => {
   const user = await User.findOne({
     where: { email },
-    include: ["queues"]
+    include: ["whatsapp"]
   });
 
   if (!user) {

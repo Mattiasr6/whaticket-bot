@@ -24,15 +24,10 @@ type IndexGetContactQuery = {
   number: string;
 };
 
-interface ExtraInfo {
-  name: string;
-  value: string;
-}
 interface ContactData {
   name: string;
   number: string;
   email?: string;
-  extraInfo?: ExtraInfo[];
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -85,13 +80,11 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   let name = newContact.name;
   let number = validNumber;
   let email = newContact.email;
-  let extraInfo = newContact.extraInfo;
 
   const contact = await CreateContactService({
     name,
     number,
     email,
-    extraInfo,
     profilePicUrl
   });
 

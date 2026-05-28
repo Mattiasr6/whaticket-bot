@@ -23,10 +23,6 @@ const buildSystemPrompt = (context: Awaited<ReturnType<typeof buildContext>>): s
     .map(i => `[PRIORITY ${i.priority}] ${i.instruction}`)
     .join("\n");
 
-  const rules = context.activeBotRules
-    .map(r => `[${r.matchType}] keywords="${r.keywords}" → response="${r.response}"`)
-    .join("\n");
-
   const rawJid = context.incomingMessage.fromJid;
   const displayJid = rawJid.includes("@") ? rawJid : `${rawJid}@s.whatsapp.net`;
   const groupJidLine = context.incomingMessage.groupJid
@@ -39,8 +35,6 @@ const buildSystemPrompt = (context: Awaited<ReturnType<typeof buildContext>>): s
     "=== INSTRUCCIONES ACTIVAS ===",
     instructions || "(ninguna)",
     "",
-    "=== REGLAS DEL BOT ACTIVAS ===",
-    rules || "(ninguna)",
     "",
     "=== CRON JOBS ACTIVOS ===",
     context.activeCronJobs.map(j => `- ${j.name} (${j.actionType}): cada "${j.cronExpr}"`).join("\n") || "(ninguno)",
@@ -61,18 +55,11 @@ const buildSystemPrompt = (context: Awaited<ReturnType<typeof buildContext>>): s
   "- list_contacts(): Listar contactos individuales",
   "- get_whatsapp_status(): Ver estado de la conexión",
   "- get_group_metadata(groupJid): Info de un grupo (miembros, nombre)",
-  "- create_bot_rule(name, keywords, matchType, response, scope, priority?): Crear regla de auto-respuesta",
-  "- list_bot_rules(): Listar reglas del bot",
-  "- update_bot_rule(ruleId, ...): Modificar una regla",
-  "- delete_bot_rule(ruleId): Eliminar regla",
   "- create_cron_job(name, cronExpr, actionType, config, whatsappId): Crear tarea programada",
   "- list_cron_jobs(): Listar tareas programadas",
   "- update_cron_job(jobId, ...): Modificar tarea",
   "- delete_cron_job(jobId): Eliminar tarea",
   "- toggle_cron_job(jobId, enabled): Activar/desactivar tarea",
-  "- create_scheduled_message(whatsappId, groupJid, groupName, messageText?, mediaPath?, intervalMinutes): Crear mensaje programado por intervalo",
-  "- list_scheduled_messages(): Listar mensajes programados",
-  "- delete_scheduled_message(id): Eliminar mensaje programado",
   "- add_instruction(instruction, priority?): Agregar instrucción para el agente",
   "- list_instructions(): Listar instrucciones activas",
   "- remove_instruction(instructionId): Eliminar instrucción",

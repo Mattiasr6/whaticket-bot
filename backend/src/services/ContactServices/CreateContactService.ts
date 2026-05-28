@@ -1,24 +1,17 @@
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 
-interface ExtraInfo {
-  name: string;
-  value: string;
-}
-
 interface Request {
   name: string;
   number: string;
   email?: string;
   profilePicUrl?: string;
-  extraInfo?: ExtraInfo[];
 }
 
 const CreateContactService = async ({
   name,
   number,
-  email = "",
-  extraInfo = []
+  email = ""
 }: Request): Promise<Contact> => {
   const numberExists = await Contact.findOne({
     where: { number }
@@ -28,17 +21,11 @@ const CreateContactService = async ({
     throw new AppError("ERR_DUPLICATED_CONTACT");
   }
 
-  const contact = await Contact.create(
-    {
-      name,
-      number,
-      email,
-      extraInfo
-    },
-    {
-      include: ["extraInfo"]
-    }
-  );
+  const contact = await Contact.create({
+    name,
+    number,
+    email
+  });
 
   return contact;
 };

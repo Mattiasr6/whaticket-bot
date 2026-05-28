@@ -9,13 +9,8 @@ import {
   AutoIncrement,
   Default,
   AllowNull,
-  HasMany,
-  Unique,
-  BelongsToMany
+  Unique
 } from "sequelize-typescript";
-import Queue from "./Queue";
-import Ticket from "./Ticket";
-import WhatsappQueue from "./WhatsappQueue";
 
 @Table
 class Whatsapp extends Model<Whatsapp> {
@@ -64,14 +59,6 @@ class Whatsapp extends Model<Whatsapp> {
   @UpdatedAt
   updatedAt: Date;
 
-  @HasMany(() => Ticket)
-  tickets: Ticket[];
-
-  @BelongsToMany(() => Queue, () => WhatsappQueue)
-  queues: Array<Queue & { WhatsappQueue: WhatsappQueue }>;
-
-  @HasMany(() => WhatsappQueue)
-  whatsappQueues: WhatsappQueue[];
 }
 
 export default Whatsapp;

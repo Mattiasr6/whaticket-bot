@@ -9,7 +9,7 @@
     "code-web": {
       "status": "completed",
       "agent": "senior-web",
-      "completed_at": "2026-05-26T20:48:37.999Z"
+      "completed_at": "2026-05-28T21:14:41.836Z"
     },
     "code-admin": {
       "status": "pending",
@@ -39,7 +39,7 @@
       "completed_at": "2026-05-26T21:00:10.702Z"
     }
   },
-  "current_phase": "perf",
+  "current_phase": "code-web",
   "loop": false,
   "loop_target": null,
   "tokens_used": 0,

@@ -2,11 +2,9 @@ import * as Yup from "yup";
 
 import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
-import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
 
 interface Request {
   name: string;
-  queueIds?: number[];
   greetingMessage?: string;
   farewellMessage?: string;
   status?: string;
@@ -21,7 +19,6 @@ interface Response {
 const CreateWhatsAppService = async ({
   name,
   status = "OPENING",
-  queueIds = [],
   greetingMessage,
   farewellMessage,
   isDefault = false
@@ -65,22 +62,13 @@ const CreateWhatsAppService = async ({
     }
   }
 
-  if (queueIds.length > 1 && !greetingMessage) {
-    throw new AppError("ERR_WAPP_GREETING_REQUIRED");
-  }
-
-  const whatsapp = await Whatsapp.create(
-    {
-      name,
-      status,
-      greetingMessage,
-      farewellMessage,
-      isDefault
-    },
-    { include: ["queues"] }
-  );
-
-  await AssociateWhatsappQueue(whatsapp, queueIds);
+  const whatsapp = await Whatsapp.create({
+    name,
+    status,
+    greetingMessage,
+    farewellMessage,
+    isDefault
+  });
 
   return { whatsapp, oldDefaultWhatsapp };
 };

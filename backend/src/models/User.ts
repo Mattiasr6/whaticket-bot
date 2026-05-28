@@ -10,15 +10,10 @@ import {
   PrimaryKey,
   AutoIncrement,
   Default,
-  HasMany,
-  BelongsToMany,
   ForeignKey,
   BelongsTo
 } from "sequelize-typescript";
 import { hash, compare } from "bcryptjs";
-import Ticket from "./Ticket";
-import Queue from "./Queue";
-import UserQueue from "./UserQueue";
 import Whatsapp from "./Whatsapp";
 
 @Table
@@ -60,12 +55,6 @@ class User extends Model<User> {
 
   @UpdatedAt
   updatedAt: Date;
-
-  @HasMany(() => Ticket)
-  tickets: Ticket[];
-
-  @BelongsToMany(() => Queue, () => UserQueue)
-  queues: Queue[];
 
   @BeforeUpdate
   @BeforeCreate

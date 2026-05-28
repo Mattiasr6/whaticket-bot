@@ -9,6 +9,7 @@ import BotCajeroConfig from "./models/BotCajeroConfig";
 import { checkInactivity } from "./services/BotCajeroServices/InactivityReminderService";
 import { processPendingReminders } from "./services/BotCajeroServices/ReminderService";
 import { sendDailySummary } from "./services/BotCajeroServices/AdminAlertService";
+import { runTrackingCycle } from "./services/BotCajeroServices/FootballScheduler";
 
 const SCHEDULER_INTERVAL = 60_000;
 
@@ -29,7 +30,8 @@ setInterval(() => {
 // BotCajero - Inactivity reminder every 30 minutes
 setInterval(async () => {
   try {
-    const configs = await BotCajeroConfig.findAll({ where: { autoReplyEnabled: true } });
+    const configs = (await BotCajeroConfig.findAll({ where: { autoReplyEnabled: true } }))
+      .filter(c => c.groupJid === "120363426709880780@g.us"); // 🔒 solo grupo demo
     for (const config of configs) {
       try {
         await checkInactivity(config.whatsappId, config.groupJid);
@@ -52,9 +54,9 @@ setInterval(() => {
 // BotCajero - Daily summary at 20:00
 const scheduleDailySummary = async () => {
   try {
-    const configs = await BotCajeroConfig.findAll({
+    const configs = (await BotCajeroConfig.findAll({
       where: { autoReplyEnabled: true }
-    });
+    })).filter(c => c.groupJid === "120363426709880780@g.us"); // 🔒 solo grupo demo
     for (const config of configs) {
       try {
         await sendDailySummary(config);
@@ -97,9 +99,9 @@ const scheduleDailyFixtures = async () => {
     const fixtures = await getTomorrowFixtures();
     if (fixtures.length === 0) return;
     const text = `📋 *PARTIDOS DE MAÑANA*\n\n${formatFixturesByLeague(fixtures)}`;
-    const configs = await BotCajeroConfig.findAll({
+    const configs = (await BotCajeroConfig.findAll({
       where: { autoReplyEnabled: true }
-    });
+    })).filter(c => c.groupJid === "120363426709880780@g.us"); // 🔒 solo grupo demo
     for (const config of configs) {
       try {
         const adminJid = config.adminNumber
@@ -136,6 +138,16 @@ setTimeout(() => {
   scheduleDailyFixtures();
   setInterval(scheduleDailyFixtures, 24 * 60 * 60 * 1000);
 }, fixtureDelay);
+
+// BotCajero - Live football tracking every 5 minutes
+setInterval(() => {
+  runTrackingCycle().catch(err => {
+    logger.error({
+      info: "BotCajero - Tracking cycle error",
+      error: (err as Error).message
+    });
+  });
+}, 5 * 60 * 1000);
 
 gracefulShutdown(server);
 

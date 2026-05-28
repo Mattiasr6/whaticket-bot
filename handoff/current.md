@@ -1,27 +1,22 @@
 # Pipeline: BotCajero — Bot moderador WhatsApp + asistente admin por comandos privados (backend Node.js)
 
-## Phase: perf
+## Phase: code-web
 
-## Fase 4: Performance — COMPLETADA ✅
+## Backend cleanup complete — FlowBot-only version
 
-### Score: 🟡 REGULAR (5 High, 6 Medium)
+Removed all Ticket/Message/Queue/QuickAnswer/ScheduledMessage/BotRule features.
+Compilation clean (tsc --noEmit exit 0).
 
-Reporte completo: `handoff/perf-report-botcajero.md`
+### Files deleted: 29
+- 9 models, 6 service dirs, 6 controllers, 6 routes, 2 api files, 4 helpers, 3 wbot services
 
-### 🔴 High (5)
-1. `readFileSync` bloqueante en stickers — bloquea event loop
-2. Bienvenidas secuenciales sin paralelismo — riesgo 429
-3. Config+FAQs cargados de DB en CADA mensaje — sin cache
-4. Double-scan config: AntiSpam + FAQAutoReply mismo findOne
-5. BotCajero 43KB estático en bundle 1.6MB — sin React.lazy()
+### Files modified: 16
+- database/index, routes/index, User/Contact/Whatsapp models
+- handleWhatsappEvents (stripped tickets/messages, kept contacts+AI+FlowBot+AutoForward+BotCajero)
+- All ContactServices, UserServices, WhatsappService
+- AiAgent services (removed BotRule/ScheduledMessage tools)
+- ContactController, UserController, WhatsAppController
+- SerializeUser helper
 
-### 🟡 Medium (6)
-- Sin delay entre participantes
-- Loop lineal 50+ FAQs sin límite
-- DeleteConfigService no limpia Redis keys
-- Buffer temporal innecesario en /sticker
-- Sin flag anti-overlap en setInterval
-- Sin rate limiting global en API
-
-### Recomendación principal
-Cachear config + FAQs + SpamRules en Redis TTL 60s → elimina ~99% queries en hot path.
+### Features kept
+FlowBot + Cron Jobs + AI Agent + Connections + Contacts + Users + Settings + BotCajero

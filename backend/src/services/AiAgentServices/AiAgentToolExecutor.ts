@@ -4,14 +4,9 @@ import { Op } from "sequelize";
 import { whatsappProvider } from "../../providers/WhatsApp/whatsappProvider";
 import { getWbot } from "../../providers/WhatsApp/Implementations/whaileys";
 import { logger } from "../../utils/logger";
-import BotRule from "../../models/BotRule";
 import CronJob from "../../models/CronJob";
-import ScheduledMessage from "../../models/ScheduledMessage";
 import AgentInstruction from "../../models/AgentInstruction";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
-import CreateBotRuleService from "../BotRuleServices/CreateBotRuleService";
-import UpdateBotRuleService from "../BotRuleServices/UpdateBotRuleService";
-import DeleteBotRuleService from "../BotRuleServices/DeleteBotRuleService";
 import CreateCronJobService from "../CronJobServices/CreateCronJobService";
 import UpdateCronJobService from "../CronJobServices/UpdateCronJobService";
 import DeleteCronJobService from "../CronJobServices/DeleteCronJobService";
@@ -47,7 +42,7 @@ const handlers: ToolHandler[] = [
       const caption = (params.caption as string) || "";
       if (!toJid || !mediaFile) throw new Error("send_image requires toJid and mediaFile");
       const fullPath = path.resolve(publicFolder, mediaFile);
-      const buffer = readFileSync(fullPath);
+      readFileSync(fullPath);
       const result = await whatsappProvider.sendMedia(whatsappId, toJid, {
         path: fullPath,
         filename: mediaFile,
@@ -124,54 +119,6 @@ const handlers: ToolHandler[] = [
     }
   },
 
-  // ─── BOT RULES ───
-  {
-    name: "create_bot_rule",
-    description: "Create an auto-reply rule. Params: name (string), keywords (string, one per line), matchType (contains|exact|regex|all), response (string), scope (all|group|chat), priority (number, optional)",
-    execute: async (params, whatsappId) => {
-      const rule = await CreateBotRuleService({
-        whatsappId,
-        name: params.name as string,
-        keywords: params.keywords as string,
-        matchType: (params.matchType as string) || "contains",
-        response: params.response as string,
-        scope: (params.scope as string) || "all",
-        priority: (params.priority as number) || 0
-      });
-      logger.info(`[Tool] create_bot_rule: ${rule.name}`);
-      return { id: rule.id, name: rule.name };
-    }
-  },
-  {
-    name: "list_bot_rules",
-    description: "List all bot rules. No params needed.",
-    execute: async (_params, whatsappId) => {
-      const rules = await BotRule.findAll({ where: { whatsappId }, order: [["priority", "ASC"]] });
-      return rules.map(r => ({ id: r.id, name: r.name, keywords: r.keywords, matchType: r.matchType, enabled: r.enabled }));
-    }
-  },
-  {
-    name: "update_bot_rule",
-    description: "Update a bot rule. Params: ruleId (number), name (string, optional), keywords (string, optional), response (string, optional), enabled (boolean, optional)",
-    execute: async (params) => {
-      const id = params.ruleId as number;
-      if (!id) throw new Error("update_bot_rule requires ruleId");
-      const rule = await UpdateBotRuleService(id, params);
-      logger.info(`[Tool] update_bot_rule: ${id}`);
-      return { id: rule.id, name: rule.name };
-    }
-  },
-  {
-    name: "delete_bot_rule",
-    description: "Delete a bot rule. Params: ruleId (number)",
-    execute: async (params) => {
-      const id = params.ruleId as number;
-      if (!id) throw new Error("delete_bot_rule requires ruleId");
-      await DeleteBotRuleService(id);
-      logger.info(`[Tool] delete_bot_rule: ${id}`);
-    }
-  },
-
   // ─── CRON JOBS ───
   {
     name: "create_cron_job",
@@ -234,44 +181,6 @@ const handlers: ToolHandler[] = [
       const job = await UpdateCronJobService(id, { enabled } as any);
       logger.info(`[Tool] toggle_cron_job: ${id} → ${enabled ? "ON" : "OFF"}`);
       return { id: job.id, enabled: job.enabled };
-    }
-  },
-
-  // ─── SCHEDULED MESSAGES ───
-  {
-    name: "create_scheduled_message",
-    description: "Create a scheduled message (interval-based). Params: whatsappId (number), groupJid (string), groupName (string), messageText (string, optional), mediaPath (string, optional), intervalMinutes (number)",
-    execute: async (params) => {
-      const msg = await ScheduledMessage.create({
-        whatsappId: params.whatsappId as number,
-        groupJid: params.groupJid as string,
-        groupName: params.groupName as string,
-        messageText: (params.messageText as string) || null,
-        mediaPath: (params.mediaPath as string) || null,
-        mediaName: (params.mediaPath as string) || null,
-        intervalMinutes: (params.intervalMinutes as number) || 1440,
-        enabled: true
-      });
-      logger.info(`[Tool] create_scheduled_message: ${msg.groupName} each ${msg.intervalMinutes}min`);
-      return { id: msg.id, groupName: msg.groupName, intervalMinutes: msg.intervalMinutes };
-    }
-  },
-  {
-    name: "list_scheduled_messages",
-    description: "List all scheduled messages. No params needed.",
-    execute: async (_params, whatsappId) => {
-      const msgs = await ScheduledMessage.findAll({ where: { whatsappId }, order: [["createdAt", "DESC"]] });
-      return msgs.map(m => ({ id: m.id, groupName: m.groupName, intervalMinutes: m.intervalMinutes, enabled: m.enabled, lastSentAt: m.lastSentAt }));
-    }
-  },
-  {
-    name: "delete_scheduled_message",
-    description: "Delete a scheduled message. Params: id (number)",
-    execute: async (params) => {
-      const id = params.id as number;
-      if (!id) throw new Error("delete_scheduled_message requires id");
-      await ScheduledMessage.destroy({ where: { id } });
-      logger.info(`[Tool] delete_scheduled_message: ${id}`);
     }
   },
 

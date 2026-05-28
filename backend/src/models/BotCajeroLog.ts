@@ -8,6 +8,7 @@ import {
   AutoIncrement,
   AllowNull,
   CreatedAt,
+  UpdatedAt,
   ForeignKey,
   BelongsTo
 } from "sequelize-typescript";
@@ -40,6 +41,11 @@ class BotCajeroLog extends Model<BotCajeroLog> {
   @AllowNull(false)
   @Column(DataType.DATE)
   createdAt: Date;
+
+  @UpdatedAt
+  @AllowNull(false)
+  @Column(DataType.DATE)
+  updatedAt: Date;
 }
 
 export default BotCajeroLog;

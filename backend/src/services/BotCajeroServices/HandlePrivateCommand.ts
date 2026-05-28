@@ -2,15 +2,27 @@ import { Op } from "sequelize";
 import BotCajeroConfig from "../../models/BotCajeroConfig";
 import BotCajeroLog from "../../models/BotCajeroLog";
 import BotCajeroReminder from "../../models/BotCajeroReminder";
+import BotCajeroPrediction from "../../models/BotCajeroPrediction";
+import BotCajeroSticker from "../../models/BotCajeroSticker";
 import {
   getTodayFixtures,
-  formatFixturesByLeague
+  formatFixturesByLeague,
+  searchFixtures
 } from "./FootballApiService";
-import Message from "../../models/Message";
+import {
+  createPrediction,
+  listActivePredictions,
+  cancelPrediction,
+  formatPredictionType
+} from "./PredictionService";
 import { getRedisClient } from "../../libs/redisStore";
 import { whatsappProvider } from "../../providers/WhatsApp/whatsappProvider";
 import { getWbot } from "../../providers/WhatsApp/Implementations/whaileys";
 import { logger } from "../../utils/logger";
+import { humanDelay } from "./HumanDelay";
+import * as path from "path";
+import { existsSync, mkdirSync } from "fs";
+import { writeFile } from "fs/promises";
 
 const normalizeNumber = (jid: string): string => {
   return jid.replace(/[^0-9]/g, "");
@@ -25,6 +37,10 @@ const handlePrivateCommand = async (
   try {
     const plainNumber = normalizeNumber(fromNumber);
 
+    // 🔒 HARDCODED LOCK: solo responde a este admin
+    const HARD_CODED_ADMIN = "59178170459";
+    if (plainNumber !== HARD_CODED_ADMIN) return;
+
     const config = await BotCajeroConfig.findOne({ where: { whatsappId } });
 
     if (!config) return;
@@ -32,12 +48,53 @@ const handlePrivateCommand = async (
     // Verify sender is admin
     if (plainNumber !== config.adminNumber) return;
 
+    // ─── Detectar sticker enviado por admin y guardar como sticker de bienvenida ───
+    if (mediaPayload && mediaPayload.mimetype === "image/webp") {
+      try {
+        const stickerDir = path.resolve(__dirname, "..", "..", "..", "public", "stickers");
+        if (!existsSync(stickerDir)) {
+          mkdirSync(stickerDir, { recursive: true });
+        }
+
+        const fileName = `welcome_${whatsappId}_${Date.now()}.webp`;
+        const filePath = path.join(stickerDir, fileName);
+        const buffer = Buffer.from(mediaPayload.data, "base64");
+        await writeFile(filePath, buffer);
+
+        await BotCajeroSticker.create({
+          botCajeroConfigId: config.id,
+          mediaPath: filePath,
+          mediaName: "Sticker de bienvenida"
+        });
+
+        await whatsappProvider.sendMessage(
+          whatsappId,
+          fromNumber,
+          "✅ Sticker guardado como sticker de bienvenida. Ahora se usará en todas las bienvenidas."
+        );
+
+        await BotCajeroLog.create({
+          botCajeroConfigId: config.id,
+          eventType: "sticker",
+          detail: "Sticker de bienvenida actualizado por admin"
+        });
+
+        return; // Salir después de procesar el sticker
+      } catch (stickerErr) {
+        logger.error({
+          info: "BotCajero - Error saving welcome sticker",
+          error: (stickerErr as Error).message
+        });
+      }
+    }
+
     const command = messageBody.split(" ")[0].toLowerCase();
     const args = messageBody.substring(command.length).trim();
 
     switch (command) {
       case "/promo": {
         if (!args) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -47,6 +104,7 @@ const handlePrivateCommand = async (
         }
 
         // Send promo to group
+        await humanDelay();
         await whatsappProvider.sendMessage(
           whatsappId,
           config.groupJid,
@@ -54,6 +112,7 @@ const handlePrivateCommand = async (
         );
 
         // Confirm to admin
+        await humanDelay();
         await whatsappProvider.sendMessage(
           whatsappId,
           fromNumber,
@@ -72,6 +131,7 @@ const handlePrivateCommand = async (
 
       case "/sticker": {
         if (!mediaPayload || !mediaPayload.mimetype.startsWith("image/")) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -84,6 +144,7 @@ const handlePrivateCommand = async (
         const imageBytes = Buffer.byteLength(mediaPayload.data, "base64");
         const maxBytes = 5 * 1024 * 1024; // 5MB
         if (imageBytes > maxBytes) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -108,6 +169,7 @@ const handlePrivateCommand = async (
             info: "BotCajero - Sticker creation error",
             error: (stickerErr as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -128,6 +190,7 @@ const handlePrivateCommand = async (
 
       case "/say": {
         if (!args) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -136,8 +199,10 @@ const handlePrivateCommand = async (
           return;
         }
         // Send clean text to group (no prefix)
+        await humanDelay();
         await whatsappProvider.sendMessage(whatsappId, config.groupJid, args);
         // Confirm to admin
+        await humanDelay();
         await whatsappProvider.sendMessage(
           whatsappId,
           fromNumber,
@@ -157,6 +222,7 @@ const handlePrivateCommand = async (
           const wbot = getWbot(whatsappId);
           const inviteCode = await wbot.groupInviteCode(config.groupJid);
           const inviteLink = `https://chat.whatsapp.com/${inviteCode}`;
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -168,6 +234,7 @@ const handlePrivateCommand = async (
             detail: "Link de invitación solicitado por admin"
           });
         } catch {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -179,6 +246,7 @@ const handlePrivateCommand = async (
 
       case "/ban": {
         if (!args) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -189,6 +257,7 @@ const handlePrivateCommand = async (
         const targetJid = args.trim();
         // Auto-ban check
         if (normalizeNumber(targetJid) === plainNumber) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -202,6 +271,7 @@ const handlePrivateCommand = async (
           const botJid = normalizeNumber(wbot.user?.id || "");
           const targetClean = normalizeNumber(targetJid);
           if (targetClean === botJid) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -214,6 +284,7 @@ const handlePrivateCommand = async (
             [targetJid],
             "remove"
           );
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -225,6 +296,7 @@ const handlePrivateCommand = async (
             detail: `Usuario ${targetJid} expulsado del grupo por admin`
           });
         } catch {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -236,6 +308,7 @@ const handlePrivateCommand = async (
 
       case "/warn": {
         if (!args) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -247,6 +320,7 @@ const handlePrivateCommand = async (
         const targetClean = normalizeNumber(targetJid);
         // Auto-warn check
         if (targetClean === plainNumber) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -259,6 +333,7 @@ const handlePrivateCommand = async (
           const wbot = getWbot(whatsappId);
           const botJid = normalizeNumber(wbot.user?.id || "");
           if (targetClean === botJid) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -279,6 +354,7 @@ const handlePrivateCommand = async (
             text: `⚠️ @${warnJid.split("@")[0]}, has recibido una advertencia. Por favor respeta las reglas del grupo.`,
             mentions: [warnJid]
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -290,6 +366,7 @@ const handlePrivateCommand = async (
             detail: `Advertencia pública a ${targetJid} por admin`
           });
         } catch {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -302,6 +379,7 @@ const handlePrivateCommand = async (
       case "/atencion": {
         if (args === "on") {
           await config.update({ autoReplyEnabled: true });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -314,6 +392,7 @@ const handlePrivateCommand = async (
           });
         } else if (args === "off") {
           await config.update({ autoReplyEnabled: false });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -325,6 +404,7 @@ const handlePrivateCommand = async (
             detail: "Atención desactivada por admin"
           });
         } else {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -337,6 +417,7 @@ const handlePrivateCommand = async (
       case "/bienvenida": {
         if (args === "on") {
           await config.update({ welcomeEnabled: true });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -349,6 +430,7 @@ const handlePrivateCommand = async (
           });
         } else if (args === "off") {
           await config.update({ welcomeEnabled: false });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -360,6 +442,7 @@ const handlePrivateCommand = async (
             detail: "Bienvenida desactivada por admin"
           });
         } else {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -372,6 +455,7 @@ const handlePrivateCommand = async (
       case "/horario": {
         if (args === "on") {
           await config.update({ businessHoursEnabled: true });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -384,6 +468,7 @@ const handlePrivateCommand = async (
           });
         } else if (args === "off") {
           await config.update({ businessHoursEnabled: false });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -395,6 +480,7 @@ const handlePrivateCommand = async (
             detail: "Horarios desactivados por admin"
           });
         } else {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -406,6 +492,7 @@ const handlePrivateCommand = async (
 
       case "/reglas": {
         if (config.rules && config.rules.trim()) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -414,6 +501,7 @@ const handlePrivateCommand = async (
             }`
           );
         } else {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -436,6 +524,7 @@ const handlePrivateCommand = async (
           "• `/help` — Mostrar esta ayuda"
         ].join("\n");
 
+        await humanDelay();
         await whatsappProvider.sendMessage(whatsappId, fromNumber, helpText);
         break;
       }
@@ -454,6 +543,7 @@ const handlePrivateCommand = async (
             ]
           });
           if (!fullConfig) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -483,6 +573,7 @@ const handlePrivateCommand = async (
             info: "BotCajero - Export error",
             error: (err as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -499,21 +590,10 @@ const handlePrivateCommand = async (
           const groupMeta = await wbot.groupMetadata(config.groupJid);
           const totalMembers = groupMeta.participants.length;
 
-          // 2. Mensajes hoy
+          // 2. Mensajes hoy (N/A - feature removed)
+          const todayMessages = "N/A";
           const todayStart = new Date();
           todayStart.setHours(0, 0, 0, 0);
-          const todayMessages = await Message.count({
-            where: {
-              fromMe: false,
-              createdAt: { [Op.gte]: todayStart }
-            },
-            include: [
-              {
-                association: "ticket",
-                where: { whatsappId }
-              }
-            ]
-          });
 
           // 3. Nuevos miembros esta semana
           const weekAgo = new Date();
@@ -551,6 +631,7 @@ const handlePrivateCommand = async (
           text += `❓ FAQs respondidas: ${faqTotal}\n`;
           text += `🛡️ Spam bloqueado hoy: ${spamToday}\n`;
 
+          await humanDelay();
           await whatsappProvider.sendMessage(whatsappId, fromNumber, text);
 
           await BotCajeroLog.create({
@@ -563,6 +644,7 @@ const handlePrivateCommand = async (
             info: "BotCajero - Stats error",
             error: (err as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -574,6 +656,7 @@ const handlePrivateCommand = async (
 
       case "/sorteo": {
         if (!args) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -593,6 +676,7 @@ const handlePrivateCommand = async (
           );
 
           if (members.length === 0) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -613,6 +697,7 @@ const handlePrivateCommand = async (
           });
 
           // Confirmar al admin
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -629,6 +714,7 @@ const handlePrivateCommand = async (
             info: "BotCajero - Sorteo error",
             error: (err as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -640,6 +726,7 @@ const handlePrivateCommand = async (
 
       case "/encuesta": {
         if (!args) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -650,6 +737,7 @@ const handlePrivateCommand = async (
         // Parse: first "|" separates question from options
         const pipeIndex = args.indexOf("|");
         if (pipeIndex === -1) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -660,6 +748,7 @@ const handlePrivateCommand = async (
         const question = args.substring(0, pipeIndex).trim();
         const optionsPart = args.substring(pipeIndex + 1).trim();
         if (!question) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -672,6 +761,7 @@ const handlePrivateCommand = async (
           .map((o: string) => o.trim())
           .filter(Boolean);
         if (options.length < 2) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -680,6 +770,7 @@ const handlePrivateCommand = async (
           return;
         }
         if (options.length > 5) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -689,15 +780,15 @@ const handlePrivateCommand = async (
         }
         try {
           const wbot = getWbot(whatsappId);
-          await wbot.sendMessage(config.groupJid, {
-            poll: {
-              name: question,
-              values: options.map((opt: string) => ({
-                optionName: opt
-              })),
-              selectableCount: 1
-            }
-          } as any);
+          const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
+          let pollText = `📊 *${question}*\n\n`;
+          options.forEach((opt: string, i: number) => {
+            const idx = emojis[i] || String(i+1) + ".";
+            pollText += `${idx}  ${opt}\n`;
+          });
+          pollText += "\n_Respondé con el número de tu opción_";
+          await whatsappProvider.sendMessage(whatsappId, config.groupJid, pollText);
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -713,6 +804,7 @@ const handlePrivateCommand = async (
             info: "BotCajero - Encuesta error",
             error: (err as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -727,6 +819,7 @@ const handlePrivateCommand = async (
         const targetJid = parts[0] || "";
         const hours = parseInt(parts[1] || "0", 10);
         if (!targetJid || !hours) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -735,6 +828,7 @@ const handlePrivateCommand = async (
           return;
         }
         if (hours < 1 || hours > 720) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -744,6 +838,7 @@ const handlePrivateCommand = async (
         }
         const targetClean = normalizeNumber(targetJid);
         if (targetClean === plainNumber) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -754,6 +849,7 @@ const handlePrivateCommand = async (
         try {
           const redis = getRedisClient();
           if (!redis) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -763,6 +859,7 @@ const handlePrivateCommand = async (
           }
           const muteKey = `botcajero:muted:${whatsappId}:${targetClean}`;
           await redis.setex(muteKey, hours * 3600, "1");
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -778,6 +875,7 @@ const handlePrivateCommand = async (
             info: "BotCajero - Mute error",
             error: (err as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -795,6 +893,7 @@ const handlePrivateCommand = async (
             order: [["scheduledAt", "ASC"]]
           });
           if (reminders.length === 0) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -807,6 +906,7 @@ const handlePrivateCommand = async (
             text += `${i + 1}. ID:${r.id} — ${r.scheduledAt.toLocaleDateString("es")} ${r.scheduledAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}\n   "${r.message.substring(0, 50)}"\n`;
           });
           text += "\nPara cancelar: /recordar cancel <ID>";
+          await humanDelay();
           await whatsappProvider.sendMessage(whatsappId, fromNumber, text);
           return;
         }
@@ -817,6 +917,7 @@ const handlePrivateCommand = async (
             10
           );
           if (!id) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -832,6 +933,7 @@ const handlePrivateCommand = async (
             }
           });
           if (!reminder) {
+            await humanDelay();
             await whatsappProvider.sendMessage(
               whatsappId,
               fromNumber,
@@ -840,6 +942,7 @@ const handlePrivateCommand = async (
             return;
           }
           await reminder.update({ status: "cancelled" });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -853,6 +956,7 @@ const handlePrivateCommand = async (
           /^(mañana|hoy|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\s+(\d{1,2}:\d{2})\s+(.+)$/i
         );
         if (!match) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -895,6 +999,7 @@ const handlePrivateCommand = async (
         }
 
         if (scheduled <= now) {
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
@@ -912,6 +1017,7 @@ const handlePrivateCommand = async (
           status: "pending"
         });
 
+        await humanDelay();
         await whatsappProvider.sendMessage(
           whatsappId,
           fromNumber,
@@ -928,22 +1034,16 @@ const handlePrivateCommand = async (
 
       case "/partidos": {
         try {
-          const fixtures = await getTodayFixtures();
-          if (fixtures.length === 0) {
-            await whatsappProvider.sendMessage(
-              whatsappId,
-              fromNumber,
-              "📋 No hay partidos programados para hoy."
-            );
-            return;
-          }
-          const text = `📋 *PARTIDOS DE HOY*\n\n${formatFixturesByLeague(
-            fixtures
-          )}`;
+          const { getAllSportsToday, formatAllSports } = await import("./SportsApiService");
+          const tz = process.env.TZ || "America/La_Paz";
+          const dateLabel = new Intl.DateTimeFormat("es", { timeZone: tz, weekday: "long", day: "numeric", month: "numeric", year: "numeric" }).format(new Date());
+          const sportsData = await getAllSportsToday();
+          const msg = formatAllSports(sportsData.football, sportsData.basketball, dateLabel, false);
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
-            text
+            msg
           );
           await BotCajeroLog.create({
             botCajeroConfigId: config.id,
@@ -955,12 +1055,165 @@ const handlePrivateCommand = async (
             info: "BotCajero - /partidos error",
             error: (err as Error).message
           });
+          await humanDelay();
           await whatsappProvider.sendMessage(
             whatsappId,
             fromNumber,
             "❌ Error al consultar partidos. Verifica la API key."
           );
         }
+        break;
+      }
+
+      case "/dinamica": {
+        if (args === "list") {
+          const predictions = await listActivePredictions(config.id);
+          if (predictions.length === 0) {
+            await humanDelay();
+            await whatsappProvider.sendMessage(
+              whatsappId,
+              fromNumber,
+              "📋 No hay dinámicas activas."
+            );
+            return;
+          }
+          let text = "📋 *DINÁMICAS ACTIVAS*\n\n";
+          predictions.forEach((p, i) => {
+            const time = new Date(p.matchTime).toLocaleString("es", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit"
+            });
+            text += `${i + 1}. ID:${p.id} — ${p.matchLabel}\n`;
+            text += `   📌 ${formatPredictionType(p.predictionType)}\n`;
+            text += `   ⏰ ${time} — ${p.entries?.length || 0} participantes\n\n`;
+          });
+          text +=
+            "Para participar en el grupo: @bot predecir <ID> <valor>\nPara cancelar: /dinamica cancel <ID>";
+          await humanDelay();
+          await whatsappProvider.sendMessage(whatsappId, fromNumber, text);
+          return;
+        }
+
+        if (args.startsWith("cancel ")) {
+          const id = parseInt(
+            args.replace("cancel ", "").trim(),
+            10
+          );
+          if (!id) {
+            await humanDelay();
+            await whatsappProvider.sendMessage(
+              whatsappId,
+              fromNumber,
+              "❌ Usa: /dinamica cancel <ID>"
+            );
+            return;
+          }
+          const ok = await cancelPrediction(id, config.id);
+          await humanDelay();
+          await whatsappProvider.sendMessage(
+            whatsappId,
+            fromNumber,
+            ok
+              ? `✅ Dinámica #${id} cancelada.`
+              : "❌ Dinámica no encontrada o ya cerrada."
+          );
+          return;
+        }
+
+        if (args.startsWith("crear ")) {
+          const rest = args.slice("crear ".length).trim();
+          const spaceIndex = rest.lastIndexOf(" ");
+          if (spaceIndex === -1) {
+            await humanDelay();
+            await whatsappProvider.sendMessage(
+              whatsappId,
+              fromNumber,
+              "❌ Formato: /dinamica crear <búsqueda> <tipo>\nTipos: score_exacto, goles_totales, primer_gol, esquinas_totales, goles_primer_tiempo"
+            );
+            return;
+          }
+          const searchQuery = rest.slice(0, spaceIndex).trim();
+          const type = rest.slice(spaceIndex + 1).trim();
+          const validTypes = [
+            "score_exacto",
+            "goles_totales",
+            "primer_gol",
+            "esquinas_totales",
+            "goles_primer_tiempo"
+          ];
+          if (!validTypes.includes(type)) {
+            await humanDelay();
+            await whatsappProvider.sendMessage(
+              whatsappId,
+              fromNumber,
+              `❌ Tipo inválido. Tipos: ${validTypes.join(", ")}`
+            );
+            return;
+          }
+          try {
+            const fixtures = await searchFixtures(searchQuery);
+            if (fixtures.length === 0) {
+              await humanDelay();
+              await whatsappProvider.sendMessage(
+                whatsappId,
+                fromNumber,
+                `❌ No se encontraron partidos para "${searchQuery}".`
+              );
+              return;
+            }
+            const fixture = fixtures[0];
+            const fixtureId = fixture.fixture?.id;
+            const home = fixture.teams?.home?.name || "?";
+            const away = fixture.teams?.away?.name || "?";
+            const matchLabel = `${home} vs ${away}`;
+            const matchTime = new Date(fixture.fixture?.date || Date.now());
+            const pred = await createPrediction(
+              config.id,
+              fixtureId,
+              matchLabel,
+              matchTime,
+              type
+            );
+            const timeStr = matchTime.toLocaleString("es", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit"
+            });
+            await humanDelay();
+            await whatsappProvider.sendMessage(
+              whatsappId,
+              fromNumber,
+              `✅ *Dinámica creada #${pred.id}*\n\n📌 ${formatPredictionType(type)}\n⚽ ${matchLabel}\n⏰ ${timeStr}\n\nLos miembros pueden participar con @bot predecir ${pred.id} <valor>`
+            );
+            await BotCajeroLog.create({
+              botCajeroConfigId: config.id,
+              eventType: "prediction",
+              detail: `Dinámica #${pred.id} creada: ${matchLabel} - ${type}`
+            });
+          } catch (err) {
+            logger.error({
+              info: "BotCajero - Dinamica crear error",
+              error: (err as Error).message
+            });
+            await humanDelay();
+            await whatsappProvider.sendMessage(
+              whatsappId,
+              fromNumber,
+              "❌ Error al crear dinámica. Verifica la API key."
+            );
+          }
+          return;
+        }
+
+        await humanDelay();
+        await whatsappProvider.sendMessage(
+          whatsappId,
+          fromNumber,
+          "❌ Usa: /dinamica crear <búsqueda> <tipo> | /dinamica list | /dinamica cancel <ID>"
+        );
         break;
       }
 

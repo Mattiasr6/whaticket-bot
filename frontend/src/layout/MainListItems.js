@@ -8,15 +8,10 @@ import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
 import { Badge } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
-import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SyncAltIcon from "@material-ui/icons/SyncAlt";
 import SettingsOutlinedIcon from "@material-ui/icons/SettingsOutlined";
 import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
 import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
-import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
-import QuestionAnswerOutlinedIcon from "@material-ui/icons/QuestionAnswerOutlined";
-import ScheduleOutlinedIcon from "@material-ui/icons/ScheduleOutlined";
-import ExtensionIcon from "@material-ui/icons/Extension";
 import TimerOutlinedIcon from "@material-ui/icons/TimerOutlined";
 import ForwardIcon from "@material-ui/icons/Forward";
 import AndroidOutlinedIcon from "@material-ui/icons/AndroidOutlined";
@@ -93,30 +88,9 @@ const MainListItems = (props) => {
         }
       />
       <ListItemLink
-        to="/tickets"
-        primary={i18n.t("mainDrawer.listItems.tickets")}
-        icon={<WhatsAppIcon />}
-      />
-
-      <ListItemLink
         to="/contacts"
         primary={i18n.t("mainDrawer.listItems.contacts")}
         icon={<ContactPhoneOutlinedIcon />}
-      />
-      <ListItemLink
-        to="/quickAnswers"
-        primary={i18n.t("mainDrawer.listItems.quickAnswers")}
-        icon={<QuestionAnswerOutlinedIcon />}
-      />
-      <ListItemLink
-        to="/scheduled-messages"
-        primary="Scheduled Messages"
-        icon={<ScheduleOutlinedIcon />}
-      />
-      <ListItemLink
-        to="/bot-rules"
-        primary="Bot Rules"
-        icon={<ExtensionIcon />}
       />
       <ListItemLink
         to="/auto-reenvio"
@@ -151,11 +125,6 @@ const MainListItems = (props) => {
               to="/users"
               primary={i18n.t("mainDrawer.listItems.users")}
               icon={<PeopleAltOutlinedIcon />}
-            />
-            <ListItemLink
-              to="/queues"
-              primary={i18n.t("mainDrawer.listItems.queues")}
-              icon={<AccountTreeOutlinedIcon />}
             />
             <ListItemLink
               to="/settings"

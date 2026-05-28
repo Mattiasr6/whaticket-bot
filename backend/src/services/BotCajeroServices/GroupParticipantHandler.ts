@@ -5,6 +5,7 @@ import BotCajeroLog from "../../models/BotCajeroLog";
 import { whatsappProvider } from "../../providers/WhatsApp/whatsappProvider";
 import { logger } from "../../utils/logger";
 import GetConfigService from "./GetConfigService";
+import { humanDelay } from "./HumanDelay";
 
 const delay = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms));
@@ -12,58 +13,50 @@ const delay = (ms: number): Promise<void> =>
 const handleGroupParticipantUpdate = async (
   whatsappId: number,
   groupJid: string,
-  participants: string[],
+  participants: (string | { id: string })[],
   action: "add" | "remove" | "promote" | "demote"
 ): Promise<void> => {
   try {
-    // Only handle add and remove actions
     if (action !== "add" && action !== "remove") return;
 
     const config = await GetConfigService(whatsappId);
 
-    // Verify this config belongs to the right group
+    // 🔒 HARDCODED LOCK
+    const HARD_CODED_GROUP = "120363426709880780@g.us";
+    if (config.groupJid !== HARD_CODED_GROUP) return;
     if (config.groupJid !== groupJid) return;
 
     const stickers: any[] = (config as any).stickers || [];
 
     for (let i = 0; i < participants.length; i++) {
-      const participant = participants[i];
-      const name = participant.split("@")[0] || "Usuario";
+      const raw = participants[i];
+      // Extract JID correctly (string or {id: string})
+      const participantJid =
+        typeof raw === "string" ? raw : (raw as any).id || String(raw);
+      const displayName = participantJid.split("@")[0] || "Usuario";
 
       if (action === "add") {
         if (!config.welcomeEnabled) continue;
 
-        // Prepare welcome message
+        // Prepare welcome message with @mention
         const welcomeMsg = (
           config.welcomeMessage ||
-          "🎉 ¡Bienvenido {{name}} al grupo {{groupName}}!\n\nLee las reglas en tu privado 📩"
+          "🎉 ¡Bienvenido @{{name}} al grupo {{groupName}}!\n\nLee las reglas en tu privado 📩"
         )
-          .replace("{{name}}", name)
+          .replace("{{name}}", displayName)
           .replace("{{groupName}}", config.groupName || groupJid);
 
-        // Prepare sticker if available
-        let stickerPromise: Promise<void> = Promise.resolve();
-        if (stickers.length > 0) {
-          const randomSticker =
-            stickers[Math.floor(Math.random() * stickers.length)];
-          stickerPromise = (async () => {
-            try {
-              const wbot = getWbot(whatsappId);
-              const stickerBuffer = await readFile(randomSticker.mediaPath);
-              await wbot.sendMessage(groupJid, { sticker: stickerBuffer });
-            } catch (stickerErr) {
-              logger.error({
-                info: "BotCajero - Error sending welcome sticker",
-                error: (stickerErr as Error).message
-              });
-            }
-          })();
-        }
+        // Simular demora humana antes de responder
+        await humanDelay();
 
-        // Execute all 3 ops in parallel (fire-and-forget with individual error handling)
+        // Execute all ops in parallel
+        const wbotWelcome = getWbot(whatsappId);
         const ops: Promise<unknown>[] = [
-          whatsappProvider
-            .sendMessage(whatsappId, groupJid, welcomeMsg)
+          wbotWelcome
+            .sendMessage(groupJid, {
+              text: welcomeMsg,
+              mentions: [participantJid]
+            })
             .catch(err => {
               logger.error({
                 info: "BotCajero - Welcome message failed",
@@ -72,15 +65,14 @@ const handleGroupParticipantUpdate = async (
             })
         ];
 
+        // Send sticker if available (use first = most recently saved)
         if (stickers.length > 0) {
-          const randomSticker =
-            stickers[Math.floor(Math.random() * stickers.length)];
+          const welcomeSticker = stickers[0];
           ops.push(
             (async () => {
               try {
-                const wbot = getWbot(whatsappId);
-                const stickerBuffer = await readFile(randomSticker.mediaPath);
-                await wbot.sendMessage(groupJid, { sticker: stickerBuffer });
+                const stickerBuffer = await readFile(welcomeSticker.mediaPath);
+                await wbotWelcome.sendMessage(groupJid, { sticker: stickerBuffer });
               } catch (stickerErr) {
                 logger.error({
                   info: "BotCajero - Error sending welcome sticker",
@@ -91,13 +83,12 @@ const handleGroupParticipantUpdate = async (
           );
         }
 
+        // Send rules in private to the new participant
         if (config.rules && config.rules.trim()) {
-          const rulesMsg = `📜 Reglas de ${config.groupName || groupJid}:\n\n${
-            config.rules
-          }`;
+          const rulesMsg = `📜 Reglas de ${config.groupName || groupJid}:\n\n${config.rules}`;
           ops.push(
             whatsappProvider
-              .sendMessage(whatsappId, participant, rulesMsg)
+              .sendMessage(whatsappId, participantJid, rulesMsg)
               .catch(err => {
                 logger.error({
                   info: "BotCajero - Rules message failed",
@@ -113,28 +104,30 @@ const handleGroupParticipantUpdate = async (
         await BotCajeroLog.create({
           botCajeroConfigId: config.id,
           eventType: "welcome",
-          detail: `Bienvenida enviada a ${name} (${participant})`
+          detail: `Bienvenida enviada a ${displayName} (${participantJid})`
         });
       }
 
       if (action === "remove") {
         if (!config.farewellEnabled) continue;
 
+        // Simular demora humana antes de responder
+        await humanDelay();
+
         const farewellMsg = (
           config.farewellMessage || "👋 {{name}} salió del grupo."
-        ).replace("{{name}}", name);
+        ).replace("{{name}}", displayName);
 
         await whatsappProvider.sendMessage(whatsappId, groupJid, farewellMsg);
 
-        // Create log
         await BotCajeroLog.create({
           botCajeroConfigId: config.id,
           eventType: "farewell",
-          detail: `Despedida enviada por salida de ${name} (${participant})`
+          detail: `Despedida enviada por salida de ${displayName} (${participantJid})`
         });
       }
 
-      // 1s delay between participants (avoid 429)
+      // 1s delay between participants
       if (i < participants.length - 1) {
         await delay(1000);
       }

@@ -1,12 +1,6 @@
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
-import Ticket from "../../models/Ticket";
 import { logger } from "../../utils/logger";
-
-interface ExtraInfo {
-  name: string;
-  value: string;
-}
 
 interface Request {
   name: string;
@@ -15,7 +9,6 @@ interface Request {
   isGroup: boolean;
   email?: string;
   profilePicUrl?: string;
-  extraInfo?: ExtraInfo[];
 }
 
 const emitContact = (action: "update" | "create", contact: Contact) => {
@@ -30,8 +23,7 @@ const CreateOrUpdateContactService = async ({
   lid,
   profilePicUrl,
   isGroup,
-  email = "",
-  extraInfo = []
+  email = ""
 }: Request): Promise<Contact> => {
   const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
   if (!number && !lid) throw new Error("Either number or lid must be provided");
@@ -45,11 +37,6 @@ const CreateOrUpdateContactService = async ({
     contactByNumber && contactByLid && contactByNumber.id !== contactByLid.id;
 
   if (shouldMerge) {
-    await Ticket.update(
-      { contactId: contactByNumber.id },
-      { where: { contactId: contactByLid.id } }
-    );
-
     await contactByLid.destroy();
 
     await contactByNumber.update({
@@ -95,8 +82,7 @@ const CreateOrUpdateContactService = async ({
     lid,
     profilePicUrl,
     email,
-    isGroup,
-    extraInfo
+    isGroup
   });
 
   emitContact("create", created);

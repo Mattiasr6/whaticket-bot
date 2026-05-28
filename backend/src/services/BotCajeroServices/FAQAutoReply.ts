@@ -4,6 +4,7 @@ import { whatsappProvider } from "../../providers/WhatsApp/whatsappProvider";
 import { logger } from "../../utils/logger";
 import { isInQuietMode } from "./QuietModeService";
 import GetConfigService from "./GetConfigService";
+import { humanDelay } from "./HumanDelay";
 
 const keywordsMatch = (
   body: string,
@@ -76,6 +77,9 @@ const handleFAQAutoReply = async (
       if (keywordList.length === 0) continue;
 
       if (!keywordsMatch(messageBody, keywordList, faq.matchType)) continue;
+
+      // Simular demora humana antes de responder
+      await humanDelay();
 
       // Send response to group
       await whatsappProvider.sendMessage(whatsappId, groupJid, faq.response);

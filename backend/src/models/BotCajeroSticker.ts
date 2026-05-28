@@ -3,6 +3,7 @@ import {
   Table,
   Column,
   CreatedAt,
+  UpdatedAt,
   Model,
   DataType,
   PrimaryKey,
@@ -39,6 +40,10 @@ class BotCajeroSticker extends Model<BotCajeroSticker> {
   @CreatedAt
   @Column
   createdAt: Date;
+
+  @UpdatedAt
+  @Column
+  updatedAt: Date;
 }
 
 export default BotCajeroSticker;

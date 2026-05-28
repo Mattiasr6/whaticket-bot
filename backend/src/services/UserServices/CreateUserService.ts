@@ -8,7 +8,6 @@ interface Request {
   email: string;
   password: string;
   name: string;
-  queueIds?: number[];
   profile?: string;
   whatsappId?: number;
 }
@@ -24,7 +23,6 @@ const CreateUserService = async ({
   email,
   password,
   name,
-  queueIds = [],
   profile = "admin",
   whatsappId
 }: Request): Promise<Response> => {
@@ -53,18 +51,13 @@ const CreateUserService = async ({
     throw new AppError(err.message);
   }
 
-  const user = await User.create(
-    {
-      email,
-      password,
-      name,
-      profile,
-      whatsappId: whatsappId ? whatsappId : null
-    },
-    { include: ["queues", "whatsapp"] }
-  );
-
-  await user.$set("queues", queueIds);
+  const user = await User.create({
+    email,
+    password,
+    name,
+    profile,
+    whatsappId: whatsappId ? whatsappId : null
+  });
 
   await user.reload();
 

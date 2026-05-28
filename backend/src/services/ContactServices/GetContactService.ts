@@ -2,17 +2,9 @@ import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
 import CreateContactService from "./CreateContactService";
 
-interface ExtraInfo {
-  name: string;
-  value: string;
-}
-
 interface Request {
   name: string;
   number: string;
-  email?: string;
-  profilePicUrl?: string;
-  extraInfo?: ExtraInfo[];
 }
 
 const GetContactService = async ({

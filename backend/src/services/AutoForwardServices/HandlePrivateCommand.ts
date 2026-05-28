@@ -310,8 +310,7 @@ const HandlePrivateCommand = async (
     }
 
     if (messageBody.startsWith("/")) {
-      // Unknown command
-      await handleHelp(whatsappId, fromNumber);
+      // Unknown command — ignore silently (may be BotCajero command)
       return;
     }
 

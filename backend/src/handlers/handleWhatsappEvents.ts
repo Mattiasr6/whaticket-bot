@@ -9,16 +9,10 @@ import { debounce } from "../helpers/Debounce";
 import formatBody from "../helpers/Mustache";
 
 import Contact from "../models/Contact";
-import Ticket from "../models/Ticket";
-import Message from "../models/Message";
 
-import CreateMessageService from "../services/MessageServices/CreateMessageService";
 import CreateOrUpdateContactService from "../services/ContactServices/CreateOrUpdateContactService";
-import FindOrCreateTicketService from "../services/TicketServices/FindOrCreateTicketService";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
-import UpdateTicketService from "../services/TicketServices/UpdateTicketService";
 import CreateContactService from "../services/ContactServices/CreateContactService";
-import EvaluateBotRules from "../services/BotRuleServices/EvaluateBotRules";
 import { decideAndAct } from "../services/AiAgentServices/AiAgentService";
 import { FlowBotHandler } from "../services/FlowBotServices/FlowBotHandler";
 import MessageBuffer from "../services/AutoForwardServices/MessageBuffer";
@@ -157,76 +151,6 @@ const processVcardMessage = async (
   }
 };
 
-const handleQueueLogic = async (
-  whatsappId: number,
-  messageBody: string,
-  ticket: Ticket,
-  contactPayload: ContactPayload
-): Promise<void> => {
-  const { queues, greetingMessage } = await ShowWhatsAppService(whatsappId);
-
-  if (queues.length === 1) {
-    await UpdateTicketService({
-      ticketData: { queueId: queues[0].id },
-      ticketId: ticket.id
-    });
-    return;
-  }
-
-  const selectedOption = messageBody;
-  const choosenQueue = queues[+selectedOption - 1];
-
-  if (choosenQueue) {
-    await UpdateTicketService({
-      ticketData: { queueId: choosenQueue.id },
-      ticketId: ticket.id
-    });
-
-    const body = formatBody(
-      `\u200e${choosenQueue.greetingMessage}`,
-      contactPayload as any
-    );
-
-    try {
-      await whatsappProvider.sendMessage(
-        whatsappId,
-        `${contactPayload.number}@c.us`,
-        body
-      );
-    } catch (error) {
-      logger.error("Error sending queue greeting message:", error);
-    }
-  } else {
-    let options = "";
-    queues.forEach((queue, index) => {
-      options += `*${index + 1}* - ${queue.name}\n`;
-    });
-
-    const body = formatBody(
-      `\u200e${greetingMessage}\n${options}`,
-      contactPayload as any
-    );
-
-    const debouncedSentMessage = debounce(
-      async () => {
-        try {
-          await whatsappProvider.sendMessage(
-            whatsappId,
-            `${contactPayload.number}@c.us`,
-            body
-          );
-        } catch (error) {
-          logger.error("Error sending queue options message:", error);
-        }
-      },
-      3000,
-      ticket.id
-    );
-
-    debouncedSentMessage();
-  }
-};
-
 export const handleMessage = async (
   messagePayload: MessagePayload,
   contactPayload: ContactPayload,
@@ -264,58 +188,14 @@ export const handleMessage = async (
       return;
     }
 
-    const ticket = await FindOrCreateTicketService(
-      contact,
-      contextPayload.whatsappId,
-      contextPayload.unreadMessages,
-      groupContact
-    );
-
-    const messageData: any = {
-      id: processedMessage.id,
-      ticketId: ticket.id,
-      contactId: processedMessage.fromMe ? undefined : contact.id,
-      body: processedMessage.body,
-      fromMe: processedMessage.fromMe,
-      read: processedMessage.fromMe,
-      mediaType: processedMessage.type,
-      quotedMsgId: processedMessage.quotedMsgId,
-      ack: processedMessage.ack !== undefined ? processedMessage.ack : 0
-    };
-
-    if (mediaPayload && processedMessage.hasMedia) {
-      const filename = await saveMediaFile(mediaPayload);
-      messageData.mediaUrl = filename;
-      messageData.body = processedMessage.body || filename;
-      const [mediaType] = mediaPayload.mimetype.split("/");
-      messageData.mediaType = mediaType;
-    }
-
-    let lastMessageText = "";
-    if (processedMessage.type === "location") {
-      lastMessageText = processedMessage.body.includes("Localization")
-        ? processedMessage.body
-        : "Localization";
-    } else {
-      lastMessageText = processedMessage.body || mediaPayload?.filename || "";
-    }
-
-    await ticket.update({ lastMessage: lastMessageText });
-
-    await CreateMessageService({ messageData });
-
-    if (!processedMessage.fromMe && processedMessage.body) {
-      const toJid = contextPayload.groupContact
-        ? contextPayload.groupContact.number
-        : contactPayload.number;
-      await EvaluateBotRules(
-        contextPayload.whatsappId,
-        processedMessage.body,
-        Boolean(contextPayload.groupContact),
-        toJid
-      );
-    }
-    if (!processedMessage.fromMe && processedMessage.body) {
+    if (
+      !processedMessage.fromMe &&
+      processedMessage.body &&
+      // Skip AI Agent processing for BotCajero commands
+      !processedMessage.body.trim().startsWith("/") &&
+      !processedMessage.body.toLowerCase().includes("@botcajero") &&
+      !processedMessage.body.toLowerCase().includes("@bot")
+    ) {
       decideAndAct({
         whatsappId: contextPayload.whatsappId,
         messageBody: processedMessage.body,
@@ -323,6 +203,15 @@ export const handleMessage = async (
         isGroup: Boolean(contextPayload.groupContact),
         groupJid: contextPayload.groupContact?.number
       }).catch(err => {
+        logger.error({ info: "AI Agent error", error: err.message });
+      });
+
+      // FlowBot
+      FlowBotHandler(
+        contextPayload.whatsappId,
+        processedMessage.body,
+        contactPayload.number
+      ).catch(err => {
         logger.error({ info: "FlowBot error", error: err.message });
       });
     }
@@ -363,27 +252,34 @@ export const handleMessage = async (
 
     // ===== BotCajero =====
 
+    // 🔒 Hardcoded group check
+    const isDemoGroup = contextPayload.groupContact?.number === "120363426709880780";
+
     // 0. BotCajero private commands (individual chat only, not groups)
     if (
       !processedMessage.fromMe &&
       !contactPayload.isGroup &&
       processedMessage.body.trim().startsWith("/")
     ) {
-      handlePrivateCommand(
-        contextPayload.whatsappId,
-        contactPayload.number,
-        processedMessage.body.trim(),
-        mediaPayload
-      ).catch(err => {
-        logger.error({
-          info: "BotCajero - Private command error",
-          error: err.message
+      // 🔒 Hardcoded admin check
+      const senderClean = contactPayload.number.replace(/[^0-9]/g, "");
+      if (senderClean === "59178170459") {
+        handlePrivateCommand(
+          contextPayload.whatsappId,
+          contactPayload.number,
+          processedMessage.body.trim(),
+          mediaPayload
+        ).catch(err => {
+          logger.error({
+            info: "BotCajero - Private command error",
+            error: err.message
+          });
         });
-      });
+      }
     }
 
     // 1. Update Redis lastmsg timestamp for inactivity tracking
-    if (contactPayload.isGroup && !processedMessage.fromMe) {
+    if (isDemoGroup && contactPayload.isGroup && !processedMessage.fromMe) {
       const redis = getRedisClient();
       if (redis) {
         const lastMsgKey = `botcajero:lastmsg:${contextPayload.whatsappId}:${contactPayload.number}`;
@@ -392,7 +288,7 @@ export const handleMessage = async (
     }
 
     // 1.5. Mute check — skip processing for muted users
-    if (contactPayload.isGroup && !processedMessage.fromMe) {
+    if (isDemoGroup && contactPayload.isGroup && !processedMessage.fromMe) {
       const redis = getRedisClient();
       if (redis) {
         const muteKey = `botcajero:muted:${contextPayload.whatsappId}:${contactPayload.number.replace(/[^0-9]/g, "")}`;
@@ -401,8 +297,9 @@ export const handleMessage = async (
       }
     }
 
-    // 2. Anti-spam (group only, incoming messages)
+    // 2. Anti-spam (group only, incoming messages, demo group only)
     if (
+      isDemoGroup &&
       contactPayload.isGroup &&
       !processedMessage.fromMe &&
       processedMessage.body
@@ -418,8 +315,9 @@ export const handleMessage = async (
       if (spamDetected) return;
     }
 
-    // 3. FAQ auto-reply (group only, incoming messages)
+    // 3. FAQ auto-reply (group only, incoming messages, demo group only)
     if (
+      isDemoGroup &&
       contactPayload.isGroup &&
       !processedMessage.fromMe &&
       processedMessage.body
@@ -429,6 +327,22 @@ export const handleMessage = async (
         contactPayload.number,
         processedMessage.body
       );
+    }
+
+    // 3.4 Group "/" commands — detect slash commands in group
+    if (
+      contactPayload.isGroup &&
+      !processedMessage.fromMe &&
+      processedMessage.body.trim().startsWith("/")
+    ) {
+      handleGroupCommand(
+        contextPayload.whatsappId,
+        contextPayload.groupContact?.number || contactPayload.number,
+        processedMessage.body.trim(),
+        contactPayload.number
+      ).catch(err => {
+        logger.error({ info: "BotCajero - Group / command error", error: (err as Error).message });
+      });
     }
 
     // 3.5 Group commands — detect @bot mentions
@@ -445,9 +359,12 @@ export const handleMessage = async (
           jid => jid.replace(/:[0-9]+/, "") === botJid
         );
         if (isBotMentioned && processedMessage.body) {
+          const grpJid2 = contextPayload.groupContact?.number
+            ? contextPayload.groupContact.number + "@g.us"
+            : contactPayload.number;
           await handleGroupCommand(
             contextPayload.whatsappId,
-            contactPayload.number,
+            grpJid2,
             processedMessage.body,
             contactPayload.number
           );
@@ -461,21 +378,6 @@ export const handleMessage = async (
     }
 
     await processVcardMessage(processedMessage);
-
-    if (
-      !ticket.queue &&
-      !contextPayload.groupContact &&
-      !processedMessage.fromMe &&
-      !ticket.userId &&
-      whatsapp.queues.length >= 1
-    ) {
-      await handleQueueLogic(
-        contextPayload.whatsappId,
-        processedMessage.body,
-        ticket,
-        contactPayload
-      );
-    }
   } catch (err) {
     Sentry.captureException(err);
     logger.error({
@@ -493,34 +395,6 @@ export const handleMessageAck = async (
   messageId: string,
   ack: MessageAck
 ): Promise<void> => {
-  await new Promise(r => setTimeout(r, 500));
-
-  const io = getIO();
-
-  try {
-    const messageToUpdate = await Message.findByPk(messageId, {
-      include: [
-        "contact",
-        {
-          model: Message,
-          as: "quotedMsg",
-          include: ["contact"]
-        }
-      ]
-    });
-
-    if (!messageToUpdate) {
-      return;
-    }
-
-    await messageToUpdate.update({ ack });
-
-    io.to(messageToUpdate.ticketId.toString()).emit("appMessage", {
-      action: "update",
-      message: messageToUpdate
-    });
-  } catch (err) {
-    Sentry.captureException(err);
-    logger.error(`Error handling message ack: ${err}`);
-  }
+  // Message ack tracking removed — feature not needed for FlowBot
+  logger.debug(`Message ack received: ${messageId} ack=${ack}`);
 };

@@ -4,7 +4,6 @@ import { Op } from "sequelize";
 import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
 import ShowWhatsAppService from "./ShowWhatsAppService";
-import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
 
 interface WhatsappData {
   name?: string;
@@ -13,7 +12,6 @@ interface WhatsappData {
   isDefault?: boolean;
   greetingMessage?: string;
   farewellMessage?: string;
-  queueIds?: number[];
 }
 
 interface Request {
@@ -42,18 +40,13 @@ const UpdateWhatsAppService = async ({
     isDefault,
     session,
     greetingMessage,
-    farewellMessage,
-    queueIds = []
+    farewellMessage
   } = whatsappData;
 
   try {
     await schema.validate({ name, status, isDefault });
   } catch (err) {
     throw new AppError(err.message);
-  }
-
-  if (queueIds.length > 1 && !greetingMessage) {
-    throw new AppError("ERR_WAPP_GREETING_REQUIRED");
   }
 
   let oldDefaultWhatsapp: Whatsapp | null = null;
@@ -77,8 +70,6 @@ const UpdateWhatsAppService = async ({
     farewellMessage,
     isDefault
   });
-
-  await AssociateWhatsappQueue(whatsapp, queueIds);
 
   return { whatsapp, oldDefaultWhatsapp };
 };
