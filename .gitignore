@@ -5,3 +5,6 @@ ssl/
 .wwebjs_cache
 .idea
 .gitnexus
+images.tar
+dist/
+*.tar.gz
