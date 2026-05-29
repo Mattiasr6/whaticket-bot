@@ -193,7 +193,7 @@ const Login = () => {
         </Paper>
         <Box mt={4} textAlign="center">
           <Typography variant="caption" style={{ color: "rgba(255,255,255,0.5)" }}>
-            &copy; {new Date().getFullYear()} WhaTicket Community
+            &copy; {new Date().getFullYear()} FlowMed
           </Typography>
         </Box>
       </Container>
