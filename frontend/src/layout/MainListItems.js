@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 
 import ListItem from "@material-ui/core/ListItem";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
@@ -28,7 +28,7 @@ import { AuthContext } from "../context/Auth/AuthContext";
 import { Can } from "../components/Can";
 
 function ListItemLink(props) {
-  const { icon, primary, to, className } = props;
+  const { icon, primary, to, className, selected } = props;
 
   const renderLink = React.useMemo(
     () =>
@@ -40,7 +40,15 @@ function ListItemLink(props) {
 
   return (
     <li>
-      <ListItem button component={renderLink} className={className}>
+      <ListItem
+        button
+        component={renderLink}
+        className={className}
+        selected={selected}
+        style={{
+          borderRight: selected ? "3px solid #3b82f6" : "3px solid transparent",
+        }}
+      >
         {icon ? <ListItemIcon>{icon}</ListItemIcon> : null}
         <ListItemText primary={primary} />
       </ListItem>
@@ -53,6 +61,9 @@ const MainListItems = (props) => {
   const { whatsApps } = useContext(WhatsAppsContext);
   const { user } = useContext(AuthContext);
   const [connectionWarning, setConnectionWarning] = useState(false);
+
+  const location = useLocation();
+  const isActive = (path) => location.pathname === path;
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -80,11 +91,13 @@ const MainListItems = (props) => {
     <div onClick={drawerClose}>
       <ListItemLink
         to="/"
+        selected={isActive("/")}
         primary="Dashboard"
         icon={<DashboardOutlinedIcon />}
       />
       <ListItemLink
         to="/connections"
+        selected={isActive("/connections")}
         primary={i18n.t("mainDrawer.listItems.connections")}
         icon={
           <Badge badgeContent={connectionWarning ? "!" : 0} color="error">
@@ -94,47 +107,56 @@ const MainListItems = (props) => {
       />
       <ListItemLink
         to="/tickets"
+        selected={isActive("/tickets")}
         primary={i18n.t("mainDrawer.listItems.tickets")}
         icon={<WhatsAppIcon />}
       />
 
       <ListItemLink
         to="/contacts"
+        selected={isActive("/contacts")}
         primary={i18n.t("mainDrawer.listItems.contacts")}
         icon={<ContactPhoneOutlinedIcon />}
       />
       <ListItemLink
         to="/quickAnswers"
+        selected={isActive("/quickAnswers")}
         primary={i18n.t("mainDrawer.listItems.quickAnswers")}
         icon={<QuestionAnswerOutlinedIcon />}
       />
       <ListItemLink
         to="/scheduled-messages"
+        selected={isActive("/scheduled-messages")}
         primary="Scheduled Messages"
         icon={<ScheduleOutlinedIcon />}
       />
       <ListItemLink
         to="/bot-rules"
+        selected={isActive("/bot-rules")}
         primary="Bot Rules"
         icon={<ExtensionIcon />}
       />
       <ListItemLink
         to="/auto-reenvio"
+        selected={isActive("/auto-reenvio")}
         primary="Reenvío Automático"
         icon={<ForwardIcon />}
       />
       <ListItemLink
         to="/cron-jobs"
+        selected={isActive("/cron-jobs")}
         primary="Cron Jobs"
         icon={<TimerOutlinedIcon />}
       />
       <ListItemLink
         to="/flow-bots"
+        selected={isActive("/flow-bots")}
         primary="Flow Bots"
         icon={<AndroidOutlinedIcon />}
       />
       <ListItemLink
         to="/bot-cajero"
+        selected={isActive("/bot-cajero")}
         primary="Bot Cajero"
         icon={<CasinoOutlinedIcon />}
       />
@@ -149,16 +171,19 @@ const MainListItems = (props) => {
             </ListSubheader>
             <ListItemLink
               to="/users"
+              selected={isActive("/users")}
               primary={i18n.t("mainDrawer.listItems.users")}
               icon={<PeopleAltOutlinedIcon />}
             />
             <ListItemLink
               to="/queues"
+              selected={isActive("/queues")}
               primary={i18n.t("mainDrawer.listItems.queues")}
               icon={<AccountTreeOutlinedIcon />}
             />
             <ListItemLink
               to="/settings"
+              selected={isActive("/settings")}
               primary={i18n.t("mainDrawer.listItems.settings")}
               icon={<SettingsOutlinedIcon />}
             />

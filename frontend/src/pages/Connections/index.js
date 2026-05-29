@@ -32,6 +32,7 @@ import MainHeader from "../../components/MainHeader";
 import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import Title from "../../components/Title";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
+import StatusBadge from "../../components/StatusBadge";
 
 import api from "../../services/api";
 import WhatsAppModal from "../../components/WhatsAppModal";
@@ -253,38 +254,48 @@ const Connections = () => {
 	const renderStatusToolTips = whatsApp => {
 		return (
 			<div className={classes.customTableCell}>
-				{whatsApp.status === "DISCONNECTED" && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.disconnected.title")}
-						content={i18n.t("connections.toolTips.disconnected.content")}
-					>
-						<SignalCellularConnectedNoInternet0Bar color="secondary" />
-					</CustomToolTip>
-				)}
-				{whatsApp.status === "OPENING" && (
-					<CircularProgress size={24} className={classes.buttonProgress} />
-				)}
-				{whatsApp.status === "qrcode" && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.qrcode.title")}
-						content={i18n.t("connections.toolTips.qrcode.content")}
-					>
-						<CropFree />
-					</CustomToolTip>
-				)}
-				{whatsApp.status === "CONNECTED" && (
-					<CustomToolTip title={i18n.t("connections.toolTips.connected.title")}>
-						<SignalCellular4Bar style={{ color: green[500] }} />
-					</CustomToolTip>
-				)}
-				{(whatsApp.status === "TIMEOUT" || whatsApp.status === "PAIRING") && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.timeout.title")}
-						content={i18n.t("connections.toolTips.timeout.content")}
-					>
-						<SignalCellularConnectedNoInternet2Bar color="secondary" />
-					</CustomToolTip>
-				)}
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+						gap: 4,
+					}}
+				>
+					{whatsApp.status === "DISCONNECTED" && (
+						<CustomToolTip
+							title={i18n.t("connections.toolTips.disconnected.title")}
+							content={i18n.t("connections.toolTips.disconnected.content")}
+						>
+							<SignalCellularConnectedNoInternet0Bar color="secondary" />
+						</CustomToolTip>
+					)}
+					{whatsApp.status === "OPENING" && (
+						<CircularProgress size={24} className={classes.buttonProgress} />
+					)}
+					{whatsApp.status === "qrcode" && (
+						<CustomToolTip
+							title={i18n.t("connections.toolTips.qrcode.title")}
+							content={i18n.t("connections.toolTips.qrcode.content")}
+						>
+							<CropFree />
+						</CustomToolTip>
+					)}
+					{whatsApp.status === "CONNECTED" && (
+						<CustomToolTip title={i18n.t("connections.toolTips.connected.title")}>
+							<SignalCellular4Bar style={{ color: green[500] }} />
+						</CustomToolTip>
+					)}
+					{(whatsApp.status === "TIMEOUT" || whatsApp.status === "PAIRING") && (
+						<CustomToolTip
+							title={i18n.t("connections.toolTips.timeout.title")}
+							content={i18n.t("connections.toolTips.timeout.content")}
+						>
+							<SignalCellularConnectedNoInternet2Bar color="secondary" />
+						</CustomToolTip>
+					)}
+					<StatusBadge status={whatsApp.status} />
+				</div>
 			</div>
 		);
 	};

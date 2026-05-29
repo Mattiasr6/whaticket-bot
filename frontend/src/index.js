@@ -1,22 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import CssBaseline from "@material-ui/core/CssBaseline";
 
 import App from "./App";
+import { ThemeProvider } from "./context/DarkMode";
 
 ReactDOM.render(
-	<CssBaseline>
+	<ThemeProvider>
 		<App />
-	</CssBaseline>,
+	</ThemeProvider>,
 	document.getElementById("root")
 );
-
-// ReactDOM.render(
-// 	<React.StrictMode>
-// 		<CssBaseline>
-// 			<App />
-// 		</CssBaseline>,
-//   </React.StrictMode>
-
-// 	document.getElementById("root")
-// );

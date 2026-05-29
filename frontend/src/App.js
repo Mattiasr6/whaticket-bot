@@ -4,9 +4,12 @@ import "react-toastify/dist/ReactToastify.css";
 
 import { createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { ptBR } from "@material-ui/core/locale";
+import { useLocation } from "react-router-dom";
+import { Fade } from "@material-ui/core";
 
 const App = () => {
   const [locale, setLocale] = useState();
+  const location = useLocation();
 
   const theme = createTheme(
     {
@@ -39,7 +42,11 @@ const App = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Routes />
+      <Fade in={true} timeout={200} key={location.pathname}>
+        <div>
+          <Routes />
+        </div>
+      </Fade>
     </ThemeProvider>
   );
 };

@@ -12,6 +12,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 
 import { i18n } from "../../translate/i18n";
 
+import StatCard from "../../components/StatCard";
 import Chart from "./Chart"
 
 const useStyles = makeStyles(theme => ({
@@ -67,41 +68,26 @@ const Dashboard = () => {
 		<div>
 			<Container maxWidth="lg" className={classes.container}>
 				<Grid container spacing={3}>
-					<Grid item xs={4}>
-						<Paper className={classes.customFixedHeightPaper} style={{ overflow: "hidden" }}>
-							<Typography component="h3" variant="h6" color="primary" paragraph>
-								{i18n.t("dashboard.messages.inAttendance.title")}
-							</Typography>
-							<Grid item>
-								<Typography component="h1" variant="h4">
-									{GetTickets("open", "true", "false")}
-								</Typography>
-							</Grid>
-						</Paper>
+					<Grid item xs={12} sm={4}>
+						<StatCard
+							title={i18n.t("dashboard.messages.inAttendance.title")}
+							value={GetTickets("open", "true", "false")}
+							color="primary"
+						/>
 					</Grid>
-					<Grid item xs={4}>
-						<Paper className={classes.customFixedHeightPaper} style={{ overflow: "hidden" }}>
-							<Typography component="h3" variant="h6" color="primary" paragraph>
-								{i18n.t("dashboard.messages.waiting.title")}
-							</Typography>
-							<Grid item>
-								<Typography component="h1" variant="h4">
-									{GetTickets("pending", "true", "false")}
-								</Typography>
-							</Grid>
-						</Paper>
+					<Grid item xs={12} sm={4}>
+						<StatCard
+							title={i18n.t("dashboard.messages.waiting.title")}
+							value={GetTickets("pending", "true", "false")}
+							color="warning"
+						/>
 					</Grid>
-					<Grid item xs={4}>
-						<Paper className={classes.customFixedHeightPaper} style={{ overflow: "hidden" }}>
-							<Typography component="h3" variant="h6" color="primary" paragraph>
-								{i18n.t("dashboard.messages.closed.title")}
-							</Typography>
-							<Grid item>
-								<Typography component="h1" variant="h4">
-									{GetTickets("closed", "true", "false")}
-								</Typography>
-							</Grid>
-						</Paper>
+					<Grid item xs={12} sm={4}>
+						<StatCard
+							title={i18n.t("dashboard.messages.closed.title")}
+							value={GetTickets("closed", "true", "false")}
+							color="success"
+						/>
 					</Grid>
 					<Grid item xs={12}>
 						<Paper className={classes.fixedHeightPaper}>
