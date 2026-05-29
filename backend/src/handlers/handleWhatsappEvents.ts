@@ -315,6 +315,20 @@ export const handleMessage = async (
         toJid
       );
     }
+
+    if (!processedMessage.fromMe && processedMessage.body) {
+      const toJid = contextPayload.groupContact
+        ? contextPayload.groupContact.number
+        : contactPayload.number;
+      FlowBotHandler(
+        contextPayload.whatsappId,
+        processedMessage.body,
+        toJid
+      ).catch(err => {
+        logger.error({ info: "FlowBotHandler error", error: err.message });
+      });
+    }
+
     if (!processedMessage.fromMe && processedMessage.body) {
       decideAndAct({
         whatsappId: contextPayload.whatsappId,
@@ -323,7 +337,7 @@ export const handleMessage = async (
         isGroup: Boolean(contextPayload.groupContact),
         groupJid: contextPayload.groupContact?.number
       }).catch(err => {
-        logger.error({ info: "FlowBot error", error: err.message });
+        logger.error({ info: "AI Agent error", error: err.message });
       });
     }
 
