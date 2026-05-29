@@ -15,7 +15,6 @@ import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
 import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
 import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
 import QuestionAnswerOutlinedIcon from "@material-ui/icons/QuestionAnswerOutlined";
-import ScheduleOutlinedIcon from "@material-ui/icons/ScheduleOutlined";
 import TimerOutlinedIcon from "@material-ui/icons/TimerOutlined";
 import AndroidOutlinedIcon from "@material-ui/icons/AndroidOutlined";
 
@@ -122,13 +121,6 @@ const MainListItems = (props) => {
         icon={<QuestionAnswerOutlinedIcon />}
       />
       <ListItemLink
-        to="/scheduled-messages"
-        selected={isActive("/scheduled-messages")}
-        primary="Scheduled Messages"
-        icon={<ScheduleOutlinedIcon />}
-      />
-      <ListItemLink
-        to="/cron-jobs"
         selected={isActive("/cron-jobs")}
         primary="Cron Jobs"
         icon={<TimerOutlinedIcon />}

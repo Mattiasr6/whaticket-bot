@@ -13,7 +13,6 @@ import Users from "../pages/Users";
 import Contacts from "../pages/Contacts/";
 import QuickAnswers from "../pages/QuickAnswers/";
 import Queues from "../pages/Queues/";
-import ScheduledMessages from "../pages/ScheduledMessages/";
 import CronJobs from "../pages/CronJobs/";
 import FlowBotList from "../pages/FlowBot/FlowBotList";
 import FlowBotEditor from "../pages/FlowBot/FlowBotEditor";
@@ -40,7 +39,6 @@ const Routes = () => {
                 <Route exact path="/quickAnswers" component={QuickAnswers} isPrivate />
                 <Route exact path="/Settings" component={Settings} isPrivate />
                 <Route exact path="/Queues" component={Queues} isPrivate />
-                <Route exact path="/scheduled-messages" component={ScheduledMessages} isPrivate />
                 <Route exact path="/cron-jobs" component={CronJobs} isPrivate />
                 <Route exact path="/flow-bots" component={FlowBotList} isPrivate />
                 <Route exact path="/flow-bots/:id/edit" component={FlowBotEditor} isPrivate />
