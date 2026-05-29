@@ -232,7 +232,7 @@ const LoggedInLayout = ({ children }) => {
             noWrap
             className={classes.title}
           >
-            FlowMed
+            CardioSalud
           </Typography>
 
           <div className={classes.themeSwitchContainer}>
