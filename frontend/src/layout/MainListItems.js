@@ -16,11 +16,8 @@ import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
 import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
 import QuestionAnswerOutlinedIcon from "@material-ui/icons/QuestionAnswerOutlined";
 import ScheduleOutlinedIcon from "@material-ui/icons/ScheduleOutlined";
-import ExtensionIcon from "@material-ui/icons/Extension";
 import TimerOutlinedIcon from "@material-ui/icons/TimerOutlined";
-import ForwardIcon from "@material-ui/icons/Forward";
 import AndroidOutlinedIcon from "@material-ui/icons/AndroidOutlined";
-import CasinoOutlinedIcon from "@material-ui/icons/CasinoOutlined";
 
 import { i18n } from "../translate/i18n";
 import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
@@ -131,18 +128,6 @@ const MainListItems = (props) => {
         icon={<ScheduleOutlinedIcon />}
       />
       <ListItemLink
-        to="/bot-rules"
-        selected={isActive("/bot-rules")}
-        primary="Bot Rules"
-        icon={<ExtensionIcon />}
-      />
-      <ListItemLink
-        to="/auto-reenvio"
-        selected={isActive("/auto-reenvio")}
-        primary="Reenvío Automático"
-        icon={<ForwardIcon />}
-      />
-      <ListItemLink
         to="/cron-jobs"
         selected={isActive("/cron-jobs")}
         primary="Cron Jobs"
@@ -153,12 +138,6 @@ const MainListItems = (props) => {
         selected={isActive("/flow-bots")}
         primary="Flow Bots"
         icon={<AndroidOutlinedIcon />}
-      />
-      <ListItemLink
-        to="/bot-cajero"
-        selected={isActive("/bot-cajero")}
-        primary="Bot Cajero"
-        icon={<CasinoOutlinedIcon />}
       />
       <Can
         role={user.profile}

@@ -1,27 +1,19 @@
 # Pipeline: BotCajero — Bot moderador WhatsApp + asistente admin por comandos privados (backend Node.js)
 
-## Phase: perf
+## Phase: code-admin
 
-## Fase 4: Performance — COMPLETADA ✅
+## DarkMode Palette Restoration
 
-### Score: 🟡 REGULAR (5 High, 6 Medium)
+**Files changed:**
+- `frontend/src/context/DarkMode/index.js` — Replaced bare-bones palette with full Tailwind Slate/Blue:
+  - `LIGHT_PALETTE`: Slate 50 bg, Slate 900 text, Blue-600 primary
+  - `DARK_PALETTE`: Slate 900 bg, Slate 100 text, Blue-500 primary
+  - `TYPOGRAPHY`: Inter font, weighted headings, no uppercase buttons
+  - `SHAPES`: borderRadius 8
+  - `OVERRIDES`: Button, Card, Paper, Dialog, Chip, TableHead, Drawer styles
+  - `type` set separately from palette spread (`{ type: "dark", ...DARK_PALETTE }`)
+- `frontend/src/index.js` — Removed standalone `<CssBaseline>`, wrapped `<App>` with DarkMode's `<ThemeProvider>` (which includes CssBaseline)
 
-Reporte completo: `handoff/perf-report-botcajero.md`
+**Architecture:** MUI nested ThemeProviders: DarkMode (outer) → App (inner with locale). Merge works correctly.
 
-### 🔴 High (5)
-1. `readFileSync` bloqueante en stickers — bloquea event loop
-2. Bienvenidas secuenciales sin paralelismo — riesgo 429
-3. Config+FAQs cargados de DB en CADA mensaje — sin cache
-4. Double-scan config: AntiSpam + FAQAutoReply mismo findOne
-5. BotCajero 43KB estático en bundle 1.6MB — sin React.lazy()
-
-### 🟡 Medium (6)
-- Sin delay entre participantes
-- Loop lineal 50+ FAQs sin límite
-- DeleteConfigService no limpia Redis keys
-- Buffer temporal innecesario en /sticker
-- Sin flag anti-overlap en setInterval
-- Sin rate limiting global en API
-
-### Recomendación principal
-Cachear config + FAQs + SpamRules en Redis TTL 60s → elimina ~99% queries en hot path.
+**Verification:** ESLint passes on both files.
