@@ -1,3 +1,4 @@
+import ClinicInfo from "../pages/ClinicInfo";
 import React from "react";
 import { BrowserRouter, Switch } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
@@ -42,6 +43,7 @@ const Routes = () => {
                 <Route exact path="/cron-jobs" component={CronJobs} isPrivate />
                 <Route exact path="/flow-bots" component={FlowBotList} isPrivate />
                 <Route exact path="/flow-bots/:id/edit" component={FlowBotEditor} isPrivate />
+                <Route exact path="/clinic-info" component={ClinicInfo} isPrivate />
               </LoggedInLayout>
             </WhatsAppsProvider>
           </Switch>

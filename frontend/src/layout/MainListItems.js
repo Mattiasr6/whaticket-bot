@@ -158,6 +158,12 @@ const MainListItems = (props) => {
               primary={i18n.t("mainDrawer.listItems.settings")}
               icon={<SettingsOutlinedIcon />}
             />
+            <ListItemLink
+              to="/clinic-info"
+              selected={isActive("/clinic-info")}
+              primary="Info. Clinica"
+              icon={<LocalHospitalOutlinedIcon />}
+            />
           </>
         )}
       />

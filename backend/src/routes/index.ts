@@ -17,6 +17,7 @@ import cronJobRoutes from "./cronJobRoutes";
 import agentInstructionRoutes from "./agentInstructionRoutes";
 import flowBotRoutes from "./flowBotRoutes";
 import autoForwardRoutes from "./autoForwardRoutes";
+import clinicInfoRoutes from "./clinicInfoRoutes";
 import botCajeroRoutes from "./botCajeroRoutes";
 
 const apiRouter = Router();
@@ -39,6 +40,7 @@ apiRouter.use(agentInstructionRoutes);
 apiRouter.use(flowBotRoutes);
 apiRouter.use(autoForwardRoutes);
 apiRouter.use(botCajeroRoutes);
+apiRouter.use(clinicInfoRoutes);
 
 const routes = Router();
 routes.use("/api", apiRouter);

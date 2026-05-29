@@ -1,4 +1,6 @@
 import { Op } from "sequelize";
+import { readFile } from "fs/promises";
+import { join } from "path";
 import AgentInstruction from "../../models/AgentInstruction";
 import BotRule from "../../models/BotRule";
 import CronJob from "../../models/CronJob";
@@ -18,7 +20,10 @@ interface Context {
   whatsappStatus: string;
   currentTime: string;
   incomingMessage: IncomingMessage;
+  clinicInfo: string;
 }
+
+const CLINIC_INFO_PATH = join(__dirname, "..", "..", "..", "public", "clinic-info.md");
 
 const buildContext = async (
   whatsappId: number,
@@ -27,17 +32,11 @@ const buildContext = async (
   const [whatsapp, activeInstructions, activeBotRules, activeCronJobs] = await Promise.all([
     ShowWhatsAppService(whatsappId),
     AgentInstruction.findAll({
-      where: {
-        whatsappId,
-        enabled: true
-      },
+      where: { whatsappId, enabled: true },
       order: [["priority", "DESC"]]
     }),
     BotRule.findAll({
-      where: {
-        whatsappId,
-        enabled: true
-      },
+      where: { whatsappId, enabled: true },
       order: [["priority", "DESC"]]
     }),
     CronJob.findAll({
@@ -48,13 +47,19 @@ const buildContext = async (
     })
   ]);
 
+  let clinicInfo = "";
+  try {
+    clinicInfo = await readFile(CLINIC_INFO_PATH, "utf-8");
+  } catch { /* file not found */ }
+
   return {
     activeInstructions,
     activeBotRules,
     activeCronJobs,
     whatsappStatus: whatsapp.status,
     currentTime: new Date().toISOString(),
-    incomingMessage
+    incomingMessage,
+    clinicInfo
   };
 };
 
