@@ -5,3 +5,5 @@ ssl/
 .wwebjs_cache
 .idea
 .gitnexus
+dist/
+images.tar

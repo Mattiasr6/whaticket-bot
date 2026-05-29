@@ -320,25 +320,24 @@ export const handleMessage = async (
       const toJid = contextPayload.groupContact
         ? contextPayload.groupContact.number
         : contactPayload.number;
-      FlowBotHandler(
+      const fbResult = await FlowBotHandler(
         contextPayload.whatsappId,
         processedMessage.body,
         toJid
-      ).catch(err => {
-        logger.error({ info: "FlowBotHandler error", error: err.message });
-      });
-    }
+      );
+      const handled = fbResult && (fbResult as any).handled === true;
 
-    if (!processedMessage.fromMe && processedMessage.body) {
-      decideAndAct({
-        whatsappId: contextPayload.whatsappId,
-        messageBody: processedMessage.body,
-        fromJid: contactPayload.number,
-        isGroup: Boolean(contextPayload.groupContact),
-        groupJid: contextPayload.groupContact?.number
-      }).catch(err => {
-        logger.error({ info: "AI Agent error", error: err.message });
-      });
+      if (!handled) {
+        decideAndAct({
+          whatsappId: contextPayload.whatsappId,
+          messageBody: processedMessage.body,
+          fromJid: contactPayload.number,
+          isGroup: Boolean(contextPayload.groupContact),
+          groupJid: contextPayload.groupContact?.number
+        }).catch(err => {
+          logger.error({ info: "AI Agent error", error: err.message });
+        });
+      }
     }
 
     // ===== Reenvío Automático =====

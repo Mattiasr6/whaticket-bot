@@ -23,6 +23,10 @@ export interface PreviewResult {
   finalNodeId: number | null;
 }
 
+export interface FlowBotResult {
+  handled: boolean;
+}
+
 // ---- Core execution engine (no side effects on sessions) ----
 
 const getRootMenuNode = async (flowBotId: number): Promise<FlowNode | null> => {
@@ -135,11 +139,11 @@ export const FlowBotHandler = async (
   contactJid: string,
   isPreview = false,
   currentNodeId?: number | null
-): Promise<PreviewResult | void> => {
+): Promise<PreviewResult | FlowBotResult> => {
   try {
     if (!messageBody) {
       if (isPreview) return { replies: [], finalNodeId: null };
-      return;
+      return { handled: false };
     }
 
     const flowBot: FlowBot | null = await FlowBot.findOne({
@@ -148,7 +152,7 @@ export const FlowBotHandler = async (
 
     if (!flowBot) {
       if (isPreview) return { replies: [], finalNodeId: null };
-      return;
+      return { handled: false };
     }
 
     // ---- Preview mode (no session DB writes) ----
@@ -200,7 +204,7 @@ export const FlowBotHandler = async (
 
     // Trigger matching only for new conversations (no active session)
     if (!hasActiveSession) {
-      if (!TriggerMatcher(messageBody, flowBot.triggerKeywords)) return;
+      if (!TriggerMatcher(messageBody, flowBot.triggerKeywords)) return { handled: false };
     }
 
     // Bug 3: Pass already-fetched session to avoid duplicate query
@@ -222,7 +226,7 @@ export const FlowBotHandler = async (
         session.currentNodeId = finalNodeId;
         await session.save();
       }
-      return;
+      return { handled: true };
     }
 
     if (session.currentNodeId) {
@@ -237,7 +241,7 @@ export const FlowBotHandler = async (
             "❌ Opción inválida. Por favor, elige un número de la lista.\n"
           );
           await MenuNodeHandler(currentNode, output);
-          return;
+          return { handled: true };
         }
 
         logger.info({info:"FlowBot DEBUG: processing choice",nodeId:currentNode.id,choice});
@@ -252,12 +256,12 @@ export const FlowBotHandler = async (
           await MenuNodeHandler(currentNode, output);
           session.currentNodeId = currentNode.id;
           await session.save();
-          return;
+          return { handled: true };
         }
 
         session.currentNodeId = finalNodeId;
         await session.save();
-        return;
+        return { handled: true };
       }
 
       session.currentNodeId = null;
@@ -269,6 +273,8 @@ export const FlowBotHandler = async (
       session.currentNodeId = finalNodeId;
       await session.save();
     }
+
+    return { handled: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     logger.error({
@@ -279,6 +285,7 @@ export const FlowBotHandler = async (
       error: message
     });
     if (isPreview) return { replies: [], finalNodeId: null };
+    return { handled: false };
   }
 };
 
