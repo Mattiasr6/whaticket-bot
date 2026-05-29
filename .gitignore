@@ -7,3 +7,4 @@ ssl/
 .gitnexus
 dist/
 images.tar
+.docker/redis/

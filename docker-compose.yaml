@@ -2,7 +2,6 @@ version: '3'
 
 networks:
   whaticket:
-
 services:
 
   backend:
@@ -24,6 +23,7 @@ services:
       - WHAILEYS_LOG_LEVEL=${WHAILEYS_LOG_LEVEL:-error}
       - OPENCODE_API_KEY=${OPENCODE_API_KEY}
       - AI_MODEL=${AI_MODEL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     ports:
       - ${BACKEND_PORT:-8080}:3000
     volumes:
@@ -51,6 +51,17 @@ services:
     networks:
       - whaticket
 
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --save 60 1000 --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - 6379:6379
+    volumes:
+      - ./.docker/redis/:/data/
+    restart: always
+    networks:
+      - whaticket
   mysql:
     image: ${MYSQL_ENGINE:-mariadb}:${MYSQL_VERSION:-10.6}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin    

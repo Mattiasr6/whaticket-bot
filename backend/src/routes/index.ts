@@ -19,6 +19,8 @@ import flowBotRoutes from "./flowBotRoutes";
 import autoForwardRoutes from "./autoForwardRoutes";
 import clinicInfoRoutes from "./clinicInfoRoutes";
 import botCajeroRoutes from "./botCajeroRoutes";
+import backupRoutes from "./backupRoutes";
+import healthRoutes from "./healthRoutes";
 
 const apiRouter = Router();
 
@@ -40,6 +42,8 @@ apiRouter.use(agentInstructionRoutes);
 apiRouter.use(flowBotRoutes);
 apiRouter.use(autoForwardRoutes);
 apiRouter.use(botCajeroRoutes);
+apiRouter.use(backupRoutes);
+apiRouter.use(healthRoutes);
 apiRouter.use(clinicInfoRoutes);
 
 const routes = Router();
