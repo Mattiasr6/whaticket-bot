@@ -24,6 +24,7 @@ services:
       - OPENCODE_API_KEY=${OPENCODE_API_KEY}
       - AI_MODEL=${AI_MODEL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - FOOTBALL_API_KEY=${FOOTBALL_API_KEY}
     ports:
       - ${BACKEND_PORT:-8080}:3000
     volumes:
