@@ -17,6 +17,7 @@ import Queues from "../pages/Queues/";
 import CronJobs from "../pages/CronJobs/";
 import FlowBotList from "../pages/FlowBot/FlowBotList";
 import FlowBotEditor from "../pages/FlowBot/FlowBotEditor";
+import BotCajero from "../pages/BotCajero/";
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
@@ -43,6 +44,7 @@ const Routes = () => {
                 <Route exact path="/cron-jobs" component={CronJobs} isPrivate />
                 <Route exact path="/flow-bots" component={FlowBotList} isPrivate />
                 <Route exact path="/flow-bots/:id/edit" component={FlowBotEditor} isPrivate />
+                <Route exact path="/bot-cajero" component={BotCajero} isPrivate />
                 <Route exact path="/clinic-info" component={ClinicInfo} isPrivate />
               </LoggedInLayout>
             </WhatsAppsProvider>

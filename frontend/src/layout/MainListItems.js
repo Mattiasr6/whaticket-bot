@@ -17,6 +17,7 @@ import AccountTreeOutlinedIcon from "@material-ui/icons/AccountTreeOutlined";
 import QuestionAnswerOutlinedIcon from "@material-ui/icons/QuestionAnswerOutlined";
 import TimerOutlinedIcon from "@material-ui/icons/TimerOutlined";
 import AndroidOutlinedIcon from "@material-ui/icons/AndroidOutlined";
+import CasinoOutlinedIcon from "@material-ui/icons/CasinoOutlined";
 import LocalHospitalOutlinedIcon from "@material-ui/icons/LocalHospitalOutlined";
 
 import { i18n } from "../translate/i18n";
@@ -131,6 +132,11 @@ const MainListItems = (props) => {
         selected={isActive("/flow-bots")}
         primary="Flow Bots"
         icon={<AndroidOutlinedIcon />}
+      />
+      <ListItemLink
+        to="/bot-cajero"
+        primary="Bot Cajero"
+        icon={<CasinoOutlinedIcon />}
       />
       <Can
         role={user.profile}
