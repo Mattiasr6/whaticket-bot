@@ -1325,12 +1325,13 @@ const sendMessage = async (
   const messageContent: AnyMessageContent = options?.quotedMessageId
     ? {
         text: body,
+        mentions: options?.mentions || undefined,
         contextInfo: {
           stanzaId: options.quotedMessageId,
           participant: options.quotedMessageFromMe ? wbot.user?.id : toJid
         }
       }
-    : { text: body };
+    : { text: body, mentions: options?.mentions || undefined };
 
   const sentMsg = await wbot.sendMessage(toJid, messageContent);
 
