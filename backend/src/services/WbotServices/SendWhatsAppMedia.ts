@@ -1,8 +1,8 @@
 import fs from "fs";
+import path from "path";
 import AppError from "../../errors/AppError";
 import Ticket from "../../models/Ticket";
 import { whatsappProvider, ProviderMessage } from "../../providers/WhatsApp";
-
 import formatBody from "../../helpers/Mustache";
 
 interface Request {
@@ -10,6 +10,19 @@ interface Request {
   ticket: Ticket;
   body?: string;
 }
+
+const MIME_MAP: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".avi": "video/x-msvideo",
+  ".mkv": "video/x-matroska",
+  ".webm": "video/webm",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
 
 const SendWhatsAppMedia = async ({
   media,
@@ -27,18 +40,20 @@ const SendWhatsAppMedia = async ({
       ? formatBody(body as string, ticket.contact)
       : undefined;
 
+    // Fix mimetype by extension if multer misdetected it
+    const ext = path.extname(media.filename).toLowerCase();
+    const fixedMimetype = MIME_MAP[ext] || media.mimetype;
+
     const mediaInput = {
       filename: media.filename,
-      mimetype: media.mimetype,
+      mimetype: fixedMimetype,
       path: media.path
     };
 
     const mediaOptions = {
       caption: hasBody,
       sendAudioAsVoice: true,
-      sendMediaAsDocument:
-        media.mimetype.startsWith("image/") &&
-        !/^.*\.(jpe?g|png|gif)?$/i.exec(media.filename)
+      sendMediaAsDocument: false
     };
 
     const sentMessage = await whatsappProvider.sendMedia(
